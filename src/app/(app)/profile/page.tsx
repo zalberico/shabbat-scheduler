@@ -34,7 +34,7 @@ export default function ProfilePage() {
 
       if (profile) {
         setName(profile.name)
-        setEmail(profile.email)
+        setEmail(profile.email || user.email || '')
         setPhone(profile.phone)
         setDietary(profile.default_dietary_restrictions)
         setKashrut(profile.default_kashrut_preference as KashrutLevel)
