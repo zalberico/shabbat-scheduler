@@ -96,6 +96,12 @@ alter table public.weekly_guests enable row level security;
 alter table public.matches enable row level security;
 alter table public.match_guests enable row level security;
 
+-- Helper function to check admin status without triggering RLS recursion
+create or replace function public.is_admin(check_user_id uuid)
+returns boolean as $$
+  select exists (select 1 from public.users where id = check_user_id and is_admin = true);
+$$ language sql security definer stable;
+
 -- Users: can read own profile, admins can read all
 create policy "Users can read own profile" on public.users
   for select using (auth.uid() = id);
@@ -107,15 +113,11 @@ create policy "Users can insert own profile" on public.users
   for insert with check (auth.uid() = id);
 
 create policy "Admins can read all users" on public.users
-  for select using (
-    exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin = true)
-  );
+  for select using (public.is_admin(auth.uid()));
 
 -- Phone allowlist: admins only
 create policy "Admins can manage allowlist" on public.phone_allowlist
-  for all using (
-    exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin = true)
-  );
+  for all using (public.is_admin(auth.uid()));
 
 -- Service role can check allowlist during signup
 create policy "Service role can read allowlist" on public.phone_allowlist
@@ -133,9 +135,7 @@ create policy "Users can manage own guest entries" on public.weekly_guests
   for all using (auth.uid() = user_id);
 
 create policy "Admins can read all guests" on public.weekly_guests
-  for select using (
-    exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin = true)
-  );
+  for select using (public.is_admin(auth.uid()));
 
 -- Matches: participants and admins can read
 create policy "Participants can read their matches" on public.matches
@@ -148,13 +148,11 @@ create policy "Participants can read their matches" on public.matches
       join public.match_guests mg on mg.guest_id = wg.id
       where mg.match_id = matches.id
     )
-    or exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin = true)
+    or public.is_admin(auth.uid())
   );
 
 create policy "Admins can manage matches" on public.matches
-  for all using (
-    exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin = true)
-  );
+  for all using (public.is_admin(auth.uid()));
 
 -- Match guests: same as matches
 create policy "Participants can read match_guests" on public.match_guests
@@ -167,12 +165,10 @@ create policy "Participants can read match_guests" on public.match_guests
           join public.match_guests mg2 on mg2.guest_id = wg.id
           where mg2.match_id = m.id
         )
-        or exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin = true)
+        or public.is_admin(auth.uid())
       )
     )
   );
 
 create policy "Admins can manage match_guests" on public.match_guests
-  for all using (
-    exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin = true)
-  );
+  for all using (public.is_admin(auth.uid()));
