@@ -17,7 +17,8 @@ async function isAuthorized(request: Request): Promise<boolean> {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return false
-    const { data: profile } = await supabase
+    const adminClient = createAdminClient()
+    const { data: profile } = await adminClient
       .from('users')
       .select('is_admin')
       .eq('id', user.id)
