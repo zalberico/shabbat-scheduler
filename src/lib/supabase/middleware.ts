@@ -39,7 +39,7 @@ export async function updateSession(request: NextRequest) {
   const publicPaths = ['/', '/login', '/signup', '/auth/callback', '/auth/confirm']
   const isPublicPath = publicPaths.some(
     (path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith('/auth/')
-  )
+  ) || request.nextUrl.pathname.startsWith('/api/')
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone()
@@ -53,19 +53,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (request.nextUrl.pathname.startsWith('/admin') && user) {
-    const { data: profile } = await supabase
-      .from('users')
-      .select('is_admin')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile?.is_admin) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/dashboard'
-      return NextResponse.redirect(url)
-    }
-  }
+  // Admin check is handled by the admin pages themselves (via requireAdmin)
+  // to avoid RLS/cookie issues in middleware
 
   return response
 }

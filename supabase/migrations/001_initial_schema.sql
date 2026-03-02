@@ -108,13 +108,13 @@ create policy "Users can insert own profile" on public.users
 
 create policy "Admins can read all users" on public.users
   for select using (
-    exists (select 1 from public.users where id = auth.uid() and is_admin = true)
+    exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin = true)
   );
 
 -- Phone allowlist: admins only
 create policy "Admins can manage allowlist" on public.phone_allowlist
   for all using (
-    exists (select 1 from public.users where id = auth.uid() and is_admin = true)
+    exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin = true)
   );
 
 -- Service role can check allowlist during signup
@@ -134,45 +134,45 @@ create policy "Users can manage own guest entries" on public.weekly_guests
 
 create policy "Admins can read all guests" on public.weekly_guests
   for select using (
-    exists (select 1 from public.users where id = auth.uid() and is_admin = true)
+    exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin = true)
   );
 
 -- Matches: participants and admins can read
 create policy "Participants can read their matches" on public.matches
   for select using (
     auth.uid() in (
-      select wh.user_id from public.weekly_hosts wh where wh.id = host_id
+      select wh.user_id from public.weekly_hosts wh where wh.id = matches.host_id
     )
     or auth.uid() in (
       select wg.user_id from public.weekly_guests wg
       join public.match_guests mg on mg.guest_id = wg.id
-      where mg.match_id = id
+      where mg.match_id = matches.id
     )
-    or exists (select 1 from public.users where id = auth.uid() and is_admin = true)
+    or exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin = true)
   );
 
 create policy "Admins can manage matches" on public.matches
   for all using (
-    exists (select 1 from public.users where id = auth.uid() and is_admin = true)
+    exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin = true)
   );
 
 -- Match guests: same as matches
 create policy "Participants can read match_guests" on public.match_guests
   for select using (
     exists (
-      select 1 from public.matches m where m.id = match_id and (
+      select 1 from public.matches m where m.id = match_guests.match_id and (
         auth.uid() in (select wh.user_id from public.weekly_hosts wh where wh.id = m.host_id)
         or auth.uid() in (
           select wg.user_id from public.weekly_guests wg
           join public.match_guests mg2 on mg2.guest_id = wg.id
           where mg2.match_id = m.id
         )
-        or exists (select 1 from public.users where id = auth.uid() and is_admin = true)
+        or exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin = true)
       )
     )
   );
 
 create policy "Admins can manage match_guests" on public.match_guests
   for all using (
-    exists (select 1 from public.users where id = auth.uid() and is_admin = true)
+    exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin = true)
   );
