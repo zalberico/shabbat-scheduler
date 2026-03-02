@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   for (const user of toNotify) {
     try {
       await resend.emails.send({
-        from: 'Shabbat Scheduler <shabbat@updates.example.com>',
+        from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
         to: user.email,
         subject: 'Sign up for Shabbat dinner this Friday!',
         react: ReminderEmail({ name: user.name, appUrl: `${appUrl}/dashboard` }),

@@ -89,7 +89,7 @@ export async function POST(request: Request) {
 
       try {
         await resend.emails.send({
-          from: 'Shabbat Scheduler <shabbat@updates.example.com>',
+          from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
           to: hostEmail,
           subject: `You're hosting this Friday! (${formattedWeek})`,
           react: HostMatchEmail({ hostName, weekOf: formattedWeek, guests: guestList }),
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
         const guestEmail = guest.users.email
         try {
           await resend.emails.send({
-            from: 'Shabbat Scheduler <shabbat@updates.example.com>',
+            from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
             to: guestEmail,
             subject: `Shabbat dinner at ${hostName}'s this Friday!`,
             react: GuestMatchEmail({
@@ -142,7 +142,7 @@ export async function POST(request: Request) {
       const guestEmail = guest.users.email
       try {
         await resend.emails.send({
-          from: 'Shabbat Scheduler <shabbat@updates.example.com>',
+          from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
           to: guestEmail,
           subject: 'No match this week — try again next Friday!',
           react: UnmatchedEmail({ name: guestName, weekOf: formattedWeek }),
