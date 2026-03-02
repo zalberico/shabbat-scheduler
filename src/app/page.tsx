@@ -1,113 +1,116 @@
-import Image from "next/image";
+import Link from 'next/link'
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <div className="min-h-screen flex flex-col">
+      {/* Header */}
+      <header className="bg-[var(--color-primary)] text-white py-4 px-6">
+        <div className="max-w-5xl mx-auto flex justify-between items-center">
+          <h1 className="text-xl font-bold">Shabbat Scheduler</h1>
+          <div className="flex gap-3">
+            <Link href="/login" className="btn-secondary !border-white !text-white hover:!bg-white hover:!text-[var(--color-primary)] text-sm !px-4 !py-2">
+              Log in
+            </Link>
+            <Link href="/signup" className="bg-[var(--color-accent)] text-[var(--color-primary)] px-4 py-2 rounded-lg font-medium text-sm hover:bg-[var(--color-accent-light)] transition-colors">
+              Sign up
+            </Link>
+          </div>
         </div>
-      </div>
+      </header>
 
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
+      {/* Hero */}
+      <main className="flex-1">
+        <section className="py-20 px-6">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-4xl md:text-5xl font-bold text-[var(--color-primary)] mb-6">
+              Shabbat Dinners,<br />Made Simple
+            </h2>
+            <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+              The Noe Valley Chavurah dinner coordination app. Hosts offer seats,
+              guests sign up, and we match everyone for a warm Friday night meal.
+            </p>
+            <div className="flex gap-4 justify-center">
+              <Link href="/signup" className="btn-primary text-lg px-8 py-3">
+                Join the Community
+              </Link>
+              <Link href="/login" className="btn-secondary text-lg px-8 py-3">
+                Sign In
+              </Link>
+            </div>
+          </div>
+        </section>
 
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
+        {/* How it works */}
+        <section className="py-16 px-6 bg-white">
+          <div className="max-w-4xl mx-auto">
+            <h3 className="text-2xl font-bold text-[var(--color-primary)] text-center mb-12">
+              How It Works
+            </h3>
+            <div className="grid md:grid-cols-3 gap-8">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-[var(--color-accent)] rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl font-bold text-[var(--color-primary)]">1</span>
+                </div>
+                <h4 className="font-semibold text-lg mb-2">Sign Up by Wednesday</h4>
+                <p className="text-gray-600">
+                  Hosts offer their table with seats and kashrut level. Guests sign up
+                  with their party size and preferences.
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-[var(--color-accent)] rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl font-bold text-[var(--color-primary)]">2</span>
+                </div>
+                <h4 className="font-semibold text-lg mb-2">Thursday Matching</h4>
+                <p className="text-gray-600">
+                  Our algorithm matches guests to compatible hosts, respecting kashrut,
+                  walking distance, and social variety.
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-[var(--color-accent)] rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl font-bold text-[var(--color-primary)]">3</span>
+                </div>
+                <h4 className="font-semibold text-lg mb-2">Friday Dinner</h4>
+                <p className="text-gray-600">
+                  Everyone gets an email introduction. The host shares their address
+                  and you enjoy a beautiful Shabbat meal together.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
 
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
+        {/* Features */}
+        <section className="py-16 px-6">
+          <div className="max-w-4xl mx-auto">
+            <h3 className="text-2xl font-bold text-[var(--color-primary)] text-center mb-12">
+              Built for Our Community
+            </h3>
+            <div className="grid md:grid-cols-2 gap-6">
+              {[
+                { title: 'Kashrut Levels', desc: 'From flexible to glatt kosher — the system matches guests with compatible hosts.' },
+                { title: 'Walking Distance', desc: 'Shomer Shabbat members can indicate they need to walk, and hosts can request walking-only guests.' },
+                { title: 'Dietary Needs', desc: 'Vegetarian, vegan, gluten-free, nut allergy — all tracked and communicated to hosts.' },
+                { title: 'Social Mixing', desc: 'The algorithm favors new pairings so you meet different community members each week.' },
+              ].map((feature) => (
+                <div key={feature.title} className="card">
+                  <h4 className="font-semibold text-lg text-[var(--color-primary)] mb-2">{feature.title}</h4>
+                  <p className="text-gray-600">{feature.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </main>
 
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  );
+      {/* Footer */}
+      <footer className="bg-[var(--color-primary)] text-white py-8 px-6">
+        <div className="max-w-4xl mx-auto text-center text-sm opacity-80">
+          <p>Noe Valley Chavurah Shabbat Dinner Program</p>
+          <p className="mt-1">Bringing our community together, one Friday at a time.</p>
+        </div>
+      </footer>
+    </div>
+  )
 }
