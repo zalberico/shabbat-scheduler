@@ -59,12 +59,13 @@ export function HostMatchEmail({
 }
 
 export function GuestMatchEmail({
-  guestName, hostName, startTime, kashrut, weekOf,
+  guestName, hostName, startTime, kashrut, observance, weekOf,
 }: {
   guestName: string
   hostName: string
   startTime: string
   kashrut: string
+  observance?: string
   weekOf: string
 }) {
   return (
@@ -84,6 +85,11 @@ export function GuestMatchEmail({
             <Text style={styles.text}>
               Kashrut: <strong>{kashrut}</strong>
             </Text>
+            {observance && (
+              <Text style={styles.text}>
+                Observance: <strong>{observance}</strong>
+              </Text>
+            )}
             <Hr />
             <Text style={styles.small}>
               Your host will reply with their address. Have a wonderful Shabbat!

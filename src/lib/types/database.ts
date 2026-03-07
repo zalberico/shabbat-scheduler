@@ -23,6 +23,12 @@ export const OBSERVANCE_LEVELS: { value: ShabbatObservance; label: string }[] = 
   { value: 'shomer_shabbat', label: 'Shomer Shabbat' },
 ]
 
+export const OBSERVANCE_RANK: Record<ShabbatObservance, number> = {
+  flexible: 0,
+  traditional: 1,
+  shomer_shabbat: 2,
+}
+
 export const DIETARY_OPTIONS = [
   'vegetarian',
   'vegan',
@@ -104,8 +110,12 @@ export interface Database {
           week_of: string
           seats_available: number
           kashrut_level: KashrutLevel
+          observance_level: ShabbatObservance
           start_time: string
           walking_distance_only: boolean
+          address: string | null
+          lat: number | null
+          lng: number | null
           notes: string | null
           status: HostStatus
           created_at: string
@@ -116,8 +126,12 @@ export interface Database {
           week_of: string
           seats_available: number
           kashrut_level: KashrutLevel
+          observance_level?: ShabbatObservance
           start_time: string
           walking_distance_only?: boolean
+          address?: string | null
+          lat?: number | null
+          lng?: number | null
           notes?: string | null
           status?: HostStatus
           created_at?: string
@@ -125,8 +139,12 @@ export interface Database {
         Update: {
           seats_available?: number
           kashrut_level?: KashrutLevel
+          observance_level?: ShabbatObservance
           start_time?: string
           walking_distance_only?: boolean
+          address?: string | null
+          lat?: number | null
+          lng?: number | null
           notes?: string | null
           status?: HostStatus
         }
@@ -139,7 +157,11 @@ export interface Database {
           party_size: number
           dietary_restrictions: string[]
           kashrut_requirement: KashrutLevel
+          observance_requirement: ShabbatObservance
           can_walk: boolean
+          address: string | null
+          lat: number | null
+          lng: number | null
           notes: string | null
           status: GuestStatus
           created_at: string
@@ -151,7 +173,11 @@ export interface Database {
           party_size: number
           dietary_restrictions?: string[]
           kashrut_requirement?: KashrutLevel
+          observance_requirement?: ShabbatObservance
           can_walk?: boolean
+          address?: string | null
+          lat?: number | null
+          lng?: number | null
           notes?: string | null
           status?: GuestStatus
           created_at?: string
@@ -160,7 +186,11 @@ export interface Database {
           party_size?: number
           dietary_restrictions?: string[]
           kashrut_requirement?: KashrutLevel
+          observance_requirement?: ShabbatObservance
           can_walk?: boolean
+          address?: string | null
+          lat?: number | null
+          lng?: number | null
           notes?: string | null
           status?: GuestStatus
         }

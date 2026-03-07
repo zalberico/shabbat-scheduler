@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getWeekOf, formatWeekOf, isBeforeDeadline } from '@/lib/utils'
-import { KASHRUT_LEVELS, START_TIMES } from '@/lib/types/database'
-import type { KashrutLevel } from '@/lib/types/database'
+import { KASHRUT_LEVELS, OBSERVANCE_LEVELS, START_TIMES } from '@/lib/types/database'
+import type { KashrutLevel, ShabbatObservance } from '@/lib/types/database'
 
 export default function HostPage() {
   const router = useRouter()
@@ -17,8 +17,9 @@ export default function HostPage() {
 
   const [seats, setSeats] = useState(4)
   const [kashrut, setKashrut] = useState<KashrutLevel>('none')
+  const [observance, setObservance] = useState<ShabbatObservance>('flexible')
   const [startTime, setStartTime] = useState('7:00 PM')
-  const [walkingOnly, setWalkingOnly] = useState(false)
+  const [address, setAddress] = useState('')
   const [notes, setNotes] = useState('')
 
   useEffect(() => {
@@ -30,17 +31,20 @@ export default function HostPage() {
       // Load user defaults
       const { data: profile } = await supabase
         .from('users')
-        .select('default_kashrut_preference')
+        .select('default_kashrut_preference, default_shabbat_observance')
         .eq('id', user.id)
         .single()
 
       if (profile?.default_kashrut_preference) {
         setKashrut(profile.default_kashrut_preference as KashrutLevel)
       }
+      if (profile?.default_shabbat_observance) {
+        setObservance(profile.default_shabbat_observance as ShabbatObservance)
+      }
 
       const { data: host } = await supabase
         .from('weekly_hosts')
-        .select('id, seats_available, kashrut_level, start_time, walking_distance_only, notes')
+        .select('id, seats_available, kashrut_level, observance_level, start_time, address, notes')
         .eq('user_id', user.id)
         .eq('week_of', weekOf)
         .single()
@@ -49,8 +53,9 @@ export default function HostPage() {
         setExisting(host.id)
         setSeats(host.seats_available)
         setKashrut(host.kashrut_level as KashrutLevel)
+        setObservance((host.observance_level as ShabbatObservance) || 'flexible')
         setStartTime(host.start_time)
-        setWalkingOnly(host.walking_distance_only)
+        setAddress(host.address || '')
         setNotes(host.notes || '')
       }
       setChecking(false)
@@ -67,13 +72,36 @@ export default function HostPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
+    // Geocode address if provided
+    let lat: number | null = null
+    let lng: number | null = null
+    if (address.trim()) {
+      try {
+        const geoRes = await fetch('/api/geocode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: address.trim() }),
+        })
+        if (geoRes.ok) {
+          const geoData = await geoRes.json()
+          lat = geoData.lat
+          lng = geoData.lng
+        }
+      } catch {
+        // Continue without geocoding
+      }
+    }
+
     const payload = {
       user_id: user.id,
       week_of: weekOf,
       seats_available: seats,
       kashrut_level: kashrut,
+      observance_level: observance,
       start_time: startTime,
-      walking_distance_only: walkingOnly,
+      address: address.trim() || null,
+      lat,
+      lng,
       notes: notes || null,
     }
 
@@ -128,6 +156,8 @@ export default function HostPage() {
     )
   }
 
+  const showAddressField = observance === 'traditional' || observance === 'shomer_shabbat'
+
   return (
     <div>
       <h1 className="page-title">
@@ -168,6 +198,20 @@ export default function HostPage() {
         </div>
 
         <div>
+          <label htmlFor="observance" className="label">Observance level of your dinner</label>
+          <select
+            id="observance"
+            value={observance}
+            onChange={(e) => setObservance(e.target.value as ShabbatObservance)}
+            className="input"
+          >
+            {OBSERVANCE_LEVELS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
           <label htmlFor="startTime" className="label">Dinner start time</label>
           <select
             id="startTime"
@@ -183,18 +227,22 @@ export default function HostPage() {
           </select>
         </div>
 
-        <div className="flex items-center gap-3">
-          <input
-            id="walking"
-            type="checkbox"
-            checked={walkingOnly}
-            onChange={(e) => setWalkingOnly(e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-          />
-          <label htmlFor="walking" className="text-sm text-gray-700">
-            Walking distance only (prefer guests who will walk to dinner)
-          </label>
-        </div>
+        {showAddressField && (
+          <div>
+            <label htmlFor="address" className="label">Address (optional)</label>
+            <input
+              id="address"
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className="input"
+              placeholder="123 Main St, San Francisco, CA"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Share your address to help Shomer Shabbat guests find dinners within walking distance
+            </p>
+          </div>
+        )}
 
         <div>
           <label htmlFor="notes" className="label">Notes (optional)</label>

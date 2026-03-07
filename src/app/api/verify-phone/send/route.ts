@@ -1,0 +1,37 @@
+import { createAdminClient } from '@/lib/supabase/admin'
+import { sendVerificationCode } from '@/lib/twilio'
+import { NextResponse } from 'next/server'
+
+export async function POST(request: Request) {
+  const { phone } = await request.json()
+
+  if (!phone) {
+    return NextResponse.json({ error: 'Phone number required' }, { status: 400 })
+  }
+
+  // Check allowlist first
+  const supabase = createAdminClient()
+  const { data } = await supabase
+    .from('phone_allowlist')
+    .select('id')
+    .eq('phone', phone)
+    .single()
+
+  if (!data) {
+    return NextResponse.json(
+      { error: 'Phone number not found in community allowlist. Contact an admin to be added.' },
+      { status: 403 }
+    )
+  }
+
+  try {
+    await sendVerificationCode(phone)
+    return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    console.error('Failed to send verification SMS:', e)
+    return NextResponse.json(
+      { error: 'Failed to send verification code. Please try again.' },
+      { status: 500 }
+    )
+  }
+}

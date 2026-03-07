@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getWeekOf, formatWeekOf, isBeforeDeadline, formatStartTime } from '@/lib/utils'
-import { KASHRUT_LEVELS } from '@/lib/types/database'
+import { KASHRUT_LEVELS, OBSERVANCE_LEVELS } from '@/lib/types/database'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -152,7 +152,9 @@ export default async function DashboardPage() {
             </div>
             <div className="text-sm text-gray-600 space-y-1">
               <p>{hostEntry.seats_available} seats &middot; {kashrutLabel(hostEntry.kashrut_level)} &middot; {formatStartTime(hostEntry.start_time)}</p>
-              {hostEntry.walking_distance_only && <p>Walking distance only</p>}
+              {hostEntry.observance_level && hostEntry.observance_level !== 'flexible' && (
+                <p>Observance: {OBSERVANCE_LEVELS.find((o) => o.value === hostEntry.observance_level)?.label || hostEntry.observance_level}</p>
+              )}
               {hostEntry.notes && <p>Notes: {hostEntry.notes}</p>}
             </div>
 

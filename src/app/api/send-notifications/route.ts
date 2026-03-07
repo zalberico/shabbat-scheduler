@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 import { HostMatchEmail, GuestMatchEmail, UnmatchedEmail } from '@/lib/email/templates'
 import { getWeekOf, formatWeekOf, formatStartTime } from '@/lib/utils'
-import { KASHRUT_LEVELS } from '@/lib/types/database'
+import { KASHRUT_LEVELS, OBSERVANCE_LEVELS } from '@/lib/types/database'
 import { NextResponse } from 'next/server'
 
 function getResend() {
@@ -102,6 +102,7 @@ export async function POST(request: Request) {
 
       // Send guest emails
       const kashrutLabel = KASHRUT_LEVELS.find((k) => k.value === host.kashrut_level)?.label || host.kashrut_level
+      const observanceLabel = OBSERVANCE_LEVELS.find((o) => o.value === host.observance_level)?.label
       for (const guest of guestEntries) {
         // @ts-expect-error - joined query types
         const guestName = guest.users.name
@@ -117,6 +118,7 @@ export async function POST(request: Request) {
               hostName,
               startTime: formatStartTime(host.start_time),
               kashrut: kashrutLabel,
+              observance: observanceLabel,
               weekOf: formattedWeek,
             }),
           })
