@@ -20,6 +20,8 @@ export default function HostPage() {
   const [observance, setObservance] = useState<ShabbatObservance>('flexible')
   const [startTime, setStartTime] = useState('7:00 PM')
   const [address, setAddress] = useState('')
+  const [kidsFriendly, setKidsFriendly] = useState(false)
+  const [dogsFriendly, setDogsFriendly] = useState(false)
   const [notes, setNotes] = useState('')
 
   useEffect(() => {
@@ -44,7 +46,7 @@ export default function HostPage() {
 
       const { data: host } = await supabase
         .from('weekly_hosts')
-        .select('id, seats_available, kashrut_level, observance_level, start_time, address, notes')
+        .select('id, seats_available, kashrut_level, observance_level, start_time, address, kids_friendly, dogs_friendly, notes')
         .eq('user_id', user.id)
         .eq('week_of', weekOf)
         .single()
@@ -56,6 +58,8 @@ export default function HostPage() {
         setObservance((host.observance_level as ShabbatObservance) || 'flexible')
         setStartTime(host.start_time)
         setAddress(host.address || '')
+        setKidsFriendly(host.kids_friendly)
+        setDogsFriendly(host.dogs_friendly)
         setNotes(host.notes || '')
       }
       setChecking(false)
@@ -102,6 +106,8 @@ export default function HostPage() {
       address: address.trim() || null,
       lat,
       lng,
+      kids_friendly: kidsFriendly,
+      dogs_friendly: dogsFriendly,
       notes: notes || null,
     }
 
@@ -243,6 +249,32 @@ export default function HostPage() {
             </p>
           </div>
         )}
+
+        <div className="flex items-center gap-3">
+          <input
+            id="kidsFriendly"
+            type="checkbox"
+            checked={kidsFriendly}
+            onChange={(e) => setKidsFriendly(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+          />
+          <label htmlFor="kidsFriendly" className="text-sm text-gray-700">
+            Kids welcome
+          </label>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <input
+            id="dogsFriendly"
+            type="checkbox"
+            checked={dogsFriendly}
+            onChange={(e) => setDogsFriendly(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+          />
+          <label htmlFor="dogsFriendly" className="text-sm text-gray-700">
+            Dogs present in household
+          </label>
+        </div>
 
         <div>
           <label htmlFor="notes" className="label">Notes (optional)</label>

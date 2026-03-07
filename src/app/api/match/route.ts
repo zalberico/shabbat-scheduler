@@ -116,6 +116,12 @@ export async function POST(request: Request) {
         const guestObsReq = OBSERVANCE_RANK[(g.observance_requirement as ShabbatObservance) || 'flexible']
         if (guestObsReq > hostObsRank) return false
 
+        // Hard constraint: kid-friendly
+        if (g.needs_kid_friendly && !host.kids_friendly) return false
+
+        // Hard constraint: dog-free
+        if (g.needs_dog_free && host.dogs_friendly) return false
+
         // Hard constraint: walking distance
         if (g.can_walk && g.lat != null && g.lng != null) {
           if (host.lat != null && host.lng != null) {

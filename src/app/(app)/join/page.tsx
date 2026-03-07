@@ -21,6 +21,8 @@ export default function JoinPage() {
   const [observance, setObservance] = useState<ShabbatObservance>('flexible')
   const [canWalk, setCanWalk] = useState(false)
   const [address, setAddress] = useState('')
+  const [needsKidFriendly, setNeedsKidFriendly] = useState(false)
+  const [needsDogFree, setNeedsDogFree] = useState(false)
   const [notes, setNotes] = useState('')
 
   useEffect(() => {
@@ -50,7 +52,7 @@ export default function JoinPage() {
 
       const { data: guest } = await supabase
         .from('weekly_guests')
-        .select('id, party_size, dietary_restrictions, kashrut_requirement, observance_requirement, can_walk, address, notes')
+        .select('id, party_size, dietary_restrictions, kashrut_requirement, observance_requirement, can_walk, address, needs_kid_friendly, needs_dog_free, notes')
         .eq('user_id', user.id)
         .eq('week_of', weekOf)
         .single()
@@ -63,6 +65,8 @@ export default function JoinPage() {
         setObservance((guest.observance_requirement as ShabbatObservance) || 'flexible')
         setCanWalk(guest.can_walk)
         setAddress(guest.address || '')
+        setNeedsKidFriendly(guest.needs_kid_friendly)
+        setNeedsDogFree(guest.needs_dog_free)
         setNotes(guest.notes || '')
       }
       setChecking(false)
@@ -116,6 +120,8 @@ export default function JoinPage() {
       address: canWalk && address.trim() ? address.trim() : null,
       lat: canWalk ? lat : null,
       lng: canWalk ? lng : null,
+      needs_kid_friendly: needsKidFriendly,
+      needs_dog_free: needsDogFree,
       notes: notes || null,
     }
 
@@ -269,6 +275,32 @@ export default function JoinPage() {
             </p>
           </div>
         )}
+
+        <div className="flex items-center gap-3">
+          <input
+            id="needsKidFriendly"
+            type="checkbox"
+            checked={needsKidFriendly}
+            onChange={(e) => setNeedsKidFriendly(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+          />
+          <label htmlFor="needsKidFriendly" className="text-sm text-gray-700">
+            I need a kid-friendly dinner
+          </label>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <input
+            id="needsDogFree"
+            type="checkbox"
+            checked={needsDogFree}
+            onChange={(e) => setNeedsDogFree(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+          />
+          <label htmlFor="needsDogFree" className="text-sm text-gray-700">
+            I need a dog-free dinner
+          </label>
+        </div>
 
         <div>
           <label htmlFor="notes" className="label">Notes (optional)</label>

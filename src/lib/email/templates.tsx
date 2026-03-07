@@ -59,13 +59,15 @@ export function HostMatchEmail({
 }
 
 export function GuestMatchEmail({
-  guestName, hostName, startTime, kashrut, observance, weekOf,
+  guestName, hostName, startTime, kashrut, observance, kidsFriendly, dogsFriendly, weekOf,
 }: {
   guestName: string
   hostName: string
   startTime: string
   kashrut: string
   observance?: string
+  kidsFriendly?: boolean
+  dogsFriendly?: boolean
   weekOf: string
 }) {
   return (
@@ -89,6 +91,12 @@ export function GuestMatchEmail({
               <Text style={styles.text}>
                 Observance: <strong>{observance}</strong>
               </Text>
+            )}
+            {kidsFriendly && (
+              <Text style={styles.text}>Kids welcome</Text>
+            )}
+            {dogsFriendly && (
+              <Text style={styles.text}>Dogs present in household</Text>
             )}
             <Hr />
             <Text style={styles.small}>

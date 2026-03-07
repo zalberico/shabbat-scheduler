@@ -11,7 +11,7 @@ export default async function AdminPage() {
   // Get this week's hosts
   const { data: hosts } = await adminClient
     .from('weekly_hosts')
-    .select('id, user_id, seats_available, kashrut_level, observance_level, start_time, notes, status, created_at')
+    .select('id, user_id, seats_available, kashrut_level, observance_level, start_time, kids_friendly, dogs_friendly, notes, status, created_at')
     .eq('week_of', weekOf)
     .order('created_at')
 
@@ -95,6 +95,8 @@ export default async function AdminPage() {
                 <p className="font-medium">{getUserName(host.user_id)}</p>
                 <p className="text-sm text-gray-600">
                   {host.seats_available} seats &middot; {kashrutLabel(host.kashrut_level)} &middot; {observanceLabel(host.observance_level)} &middot; {formatStartTime(host.start_time)}
+                  {host.kids_friendly && ' · Kids welcome'}
+                  {host.dogs_friendly && ' · Dogs present'}
                 </p>
               </div>
               <span className={`text-xs px-2 py-1 rounded-full ${
