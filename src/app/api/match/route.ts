@@ -119,8 +119,8 @@ export async function POST(request: Request) {
         // Hard constraint: kid-friendly
         if (g.needs_kid_friendly && !host.kids_friendly) return false
 
-        // Hard constraint: dog-free
-        if (g.needs_dog_free && host.dogs_friendly) return false
+        // Hard constraint: dog-friendly
+        if (g.needs_dog_friendly && !host.dogs_friendly) return false
 
         // Hard constraint: walking distance
         if (g.can_walk && g.lat != null && g.lng != null) {

@@ -96,7 +96,7 @@ export default async function AdminPage() {
                 <p className="text-sm text-gray-600">
                   {host.seats_available} seats &middot; {kashrutLabel(host.kashrut_level)} &middot; {observanceLabel(host.observance_level)} &middot; {formatStartTime(host.start_time)}
                   {host.kids_friendly && ' · Kids welcome'}
-                  {host.dogs_friendly && ' · Dogs present'}
+                  {host.dogs_friendly && ' · Dogs welcome'}
                 </p>
               </div>
               <span className={`text-xs px-2 py-1 rounded-full ${
