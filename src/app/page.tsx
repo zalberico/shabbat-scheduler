@@ -53,8 +53,8 @@ export default function Home() {
                 </div>
                 <h4 className="font-semibold text-lg mb-2">Sign Up by Wednesday</h4>
                 <p className="text-gray-600">
-                  Hosts offer their table with seats and kashrut level. Guests sign up
-                  with their party size and preferences.
+                  Hosts offer their table with seats, kashrut, and observance level.
+                  Guests sign up with their party size and preferences.
                 </p>
               </div>
               <div className="text-center">
@@ -64,7 +64,7 @@ export default function Home() {
                 <h4 className="font-semibold text-lg mb-2">Thursday Matching</h4>
                 <p className="text-gray-600">
                   Our algorithm matches guests to compatible hosts, respecting kashrut,
-                  walking distance, and social variety.
+                  observance, and walking distance for Shomer Shabbat guests.
                 </p>
               </div>
               <div className="text-center">
@@ -90,9 +90,10 @@ export default function Home() {
             <div className="grid md:grid-cols-2 gap-6">
               {[
                 { title: 'Kashrut Levels', desc: 'From flexible to glatt kosher — the system matches guests with compatible hosts.' },
-                { title: 'Walking Distance', desc: 'Shomer Shabbat members can indicate they need to walk, and hosts can request walking-only guests.' },
+                { title: 'Observance Levels', desc: 'Hosts set their dinner observance level and guests set their minimum — matching respects both.' },
+                { title: 'Walking Distance', desc: 'Guests who walk on Shabbat can share their address and get matched to nearby hosts.' },
                 { title: 'Dietary Needs', desc: 'Vegetarian, vegan, gluten-free, nut allergy — all tracked and communicated to hosts.' },
-                { title: 'Social Mixing', desc: 'The algorithm favors new pairings so you meet different community members each week.' },
+                { title: 'Meet New People', desc: 'The algorithm favors new pairings so you meet different community members each week.' },
               ].map((feature) => (
                 <div key={feature.title} className="card">
                   <h4 className="font-semibold text-lg text-[var(--color-primary)] mb-2">{feature.title}</h4>
