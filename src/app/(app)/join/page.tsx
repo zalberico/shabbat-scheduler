@@ -255,7 +255,7 @@ export default function JoinPage() {
             className="w-4 h-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
           />
           <label htmlFor="canWalk" className="text-sm text-gray-700">
-            I can walk to dinner (relevant for Shomer Shabbat hosts)
+            I don&apos;t drive on Shabbat
           </label>
         </div>
 

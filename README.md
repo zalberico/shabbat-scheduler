@@ -8,7 +8,7 @@ A web app for the Noe Valley Chavurah to coordinate weekly Shabbat dinners. Memb
 
 1. **Sunday-Wednesday**: Hosts offer seats (with kashrut level, start time, preferences). Guests sign up (party size, dietary needs, requirements).
 2. **Wednesday 11:59 PM PT**: Signup deadline
-3. **Thursday 8 AM PT**: Automated matching runs — emails go out to hosts (guest list + dietary info) and guests (host name + dinner details)
+3. **Thursday 8 AM PT**: Automated matching runs — a group email goes out to each match (host + guests together) with dinner details
 4. **Friday**: Shabbat shalom!
 
 ## Tech Stack
@@ -57,15 +57,21 @@ The matching runs as a greedy algorithm with hard constraints and soft scoring:
 
 **Hard constraints** (must satisfy):
 - Guest kashrut requirement <= host kashrut level
-- If host requires walking distance, guest must be able to walk
+- Guest observance requirement <= host observance level
+- Guest needing kid-friendly must match kid-friendly host
+- Guest needing dog-friendly must match dog-friendly host
+- Walking distance guests must be within 1 mile of host
 - Total party sizes at a table <= host's available seats
 
 **Soft scoring** (best-effort):
 - **Novelty**: Prefer pairings that haven't happened in the last 8 weeks
 - **Table fill**: Prefer filling tables fully over leaving empty seats
 - **Dietary grouping**: Group guests with similar dietary needs
+- **Walking proximity**: Bonus for guests close to host
 
-Hosts are sorted most-constrained-first (strictest kashrut, walking-only, fewest seats), then guests are greedily assigned by score.
+Hosts are sorted most-constrained-first (strictest kashrut, highest observance, fewest seats), then guests are greedily assigned by score.
+
+Match notifications are sent as a single group email per match (host + all guests in the `to` field) so everyone can reply-all to coordinate.
 
 ## Local Development
 

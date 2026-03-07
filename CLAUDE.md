@@ -33,6 +33,7 @@
 - Forms use client components with `'use client'` and `useState`/`useEffect`
 - `getWeekOf()` returns the next Friday as `YYYY-MM-DD`
 - `@ts-expect-error` or `as any` casts on Supabase joined query results (e.g., `host.users.name`) due to type inference limitations
+- Match notifications use a single group email per match (`to: [hostEmail, ...guestEmails]`) via Resend, so everyone can reply-all. Template is `MatchGroupEmail`.
 
 ## Deployment
 
