@@ -35,8 +35,6 @@ export const DIETARY_OPTIONS = [
   'gluten-free',
   'nut allergy',
   'dairy-free',
-  'no shellfish',
-  'no pork',
 ] as const
 
 export const START_TIMES = [
