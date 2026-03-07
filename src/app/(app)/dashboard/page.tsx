@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getWeekOf, formatWeekOf, isBeforeDeadline, formatStartTime } from '@/lib/utils'
 import { KASHRUT_LEVELS, OBSERVANCE_LEVELS } from '@/lib/types/database'
 import Link from 'next/link'
@@ -91,7 +92,8 @@ export default async function DashboardPage() {
         .single()
 
       if (match) {
-        const { data: host } = await supabase
+        const adminClient = createAdminClient()
+        const { data: host } = await adminClient
           .from('weekly_hosts')
           .select('user_id, start_time, kashrut_level, notes')
           .eq('id', match.host_id)
@@ -241,15 +243,15 @@ export default async function DashboardPage() {
 }
 
 async function WeekStats({ weekOf }: { weekOf: string }) {
-  const supabase = createClient()
+  const adminClient = createAdminClient()
 
-  const { count: hostCount } = await supabase
+  const { count: hostCount } = await adminClient
     .from('weekly_hosts')
     .select('*', { count: 'exact', head: true })
     .eq('week_of', weekOf)
     .neq('status', 'cancelled')
 
-  const { count: guestCount } = await supabase
+  const { count: guestCount } = await adminClient
     .from('weekly_guests')
     .select('*', { count: 'exact', head: true })
     .eq('week_of', weekOf)

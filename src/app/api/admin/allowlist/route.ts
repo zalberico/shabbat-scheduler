@@ -31,6 +31,8 @@ export async function GET() {
   return NextResponse.json(data || [])
 }
 
+const PHONE_REGEX = /^\+?[1-9]\d{1,14}$/
+
 export async function POST(request: Request) {
   if (!(await checkAdmin())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -40,10 +42,17 @@ export async function POST(request: Request) {
   const supabase = createAdminClient()
 
   if (body.phones && Array.isArray(body.phones)) {
+    if (body.phones.length > 500) {
+      return NextResponse.json({ error: 'Maximum 500 phones per upload' }, { status: 400 })
+    }
     // Bulk insert
     let added = 0
     let skipped = 0
     for (const phone of body.phones) {
+      if (typeof phone !== 'string' || !PHONE_REGEX.test(phone)) {
+        skipped++
+        continue
+      }
       const { error } = await supabase
         .from('phone_allowlist')
         .insert({ phone })
@@ -54,6 +63,9 @@ export async function POST(request: Request) {
   }
 
   if (body.phone) {
+    if (typeof body.phone !== 'string' || !PHONE_REGEX.test(body.phone)) {
+      return NextResponse.json({ error: 'Invalid phone number format' }, { status: 400 })
+    }
     // Single insert
     const { error } = await supabase
       .from('phone_allowlist')
@@ -62,7 +74,7 @@ export async function POST(request: Request) {
     if (error) {
       const msg = error.message.includes('duplicate')
         ? 'Phone already in allowlist.'
-        : error.message
+        : 'Failed to add phone number.'
       return NextResponse.json({ error: msg }, { status: 400 })
     }
     return NextResponse.json({ ok: true })
@@ -71,12 +83,17 @@ export async function POST(request: Request) {
   return NextResponse.json({ error: 'Missing phone or phones' }, { status: 400 })
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function DELETE(request: Request) {
   if (!(await checkAdmin())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const { id } = await request.json()
+  if (typeof id !== 'string' || !UUID_REGEX.test(id)) {
+    return NextResponse.json({ error: 'Invalid ID' }, { status: 400 })
+  }
   const supabase = createAdminClient()
   await supabase.from('phone_allowlist').delete().eq('id', id)
   return NextResponse.json({ ok: true })
