@@ -85,6 +85,7 @@ export async function POST(request: Request) {
         name: g.users.name,
         partySize: g.party_size,
         dietary: g.dietary_restrictions,
+        notes: g.notes,
       }))
 
       const guestEmails = guestEntries.map((g) => {
@@ -110,6 +111,7 @@ export async function POST(request: Request) {
             observance: observanceLabel,
             kidsFriendly: host.kids_friendly,
             dogsFriendly: host.dogs_friendly,
+            hostNotes: host.notes,
             guests: guestList,
           }),
         })

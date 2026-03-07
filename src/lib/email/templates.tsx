@@ -20,7 +20,7 @@ const styles = {
 
 export function MatchGroupEmail({
   hostName, weekOf, startTime, kashrut, observance, kidsFriendly, dogsFriendly,
-  guests,
+  hostNotes, guests,
 }: {
   hostName: string
   weekOf: string
@@ -29,7 +29,8 @@ export function MatchGroupEmail({
   observance?: string
   kidsFriendly?: boolean
   dogsFriendly?: boolean
-  guests: { name: string; partySize: number; dietary: string[] }[]
+  hostNotes?: string | null
+  guests: { name: string; partySize: number; dietary: string[]; notes?: string | null }[]
 }) {
   const totalGuests = guests.reduce((sum, g) => sum + g.partySize, 0)
   return (
@@ -60,6 +61,11 @@ export function MatchGroupEmail({
             {dogsFriendly && (
               <Text style={styles.text}>Dogs welcome</Text>
             )}
+            {hostNotes && (
+              <Text style={styles.text}>
+                Notes from host: <em>{hostNotes}</em>
+              </Text>
+            )}
             <Hr />
             <Text style={{ ...styles.text, fontWeight: 'bold' as const }}>
               Guests ({totalGuests} total):
@@ -68,6 +74,7 @@ export function MatchGroupEmail({
               <Text key={i} style={styles.text}>
                 • <strong>{g.name}</strong> (party of {g.partySize})
                 {g.dietary.length > 0 && ` — Dietary: ${g.dietary.join(', ')}`}
+                {g.notes && ` — Note: ${g.notes}`}
               </Text>
             ))}
             <Hr />
