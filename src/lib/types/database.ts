@@ -32,6 +32,7 @@ export const OBSERVANCE_RANK: Record<ShabbatObservance, number> = {
 export const DIETARY_OPTIONS = [
   'vegetarian',
   'vegan',
+  'pescatarian',
   'gluten-free',
   'nut allergy',
   'dairy-free',
