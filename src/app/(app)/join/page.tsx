@@ -22,7 +22,7 @@ export default function JoinPage() {
   const [canWalk, setCanWalk] = useState(false)
   const [address, setAddress] = useState('')
   const [needsKidFriendly, setNeedsKidFriendly] = useState(false)
-  const [needsDogFree, setNeedsDogFree] = useState(false)
+  const [needsDogFriendly, setNeedsDogFriendly] = useState(false)
   const [notes, setNotes] = useState('')
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export default function JoinPage() {
 
       const { data: guest } = await supabase
         .from('weekly_guests')
-        .select('id, party_size, dietary_restrictions, kashrut_requirement, observance_requirement, can_walk, address, needs_kid_friendly, needs_dog_free, notes')
+        .select('id, party_size, dietary_restrictions, kashrut_requirement, observance_requirement, can_walk, address, needs_kid_friendly, needs_dog_friendly, notes')
         .eq('user_id', user.id)
         .eq('week_of', weekOf)
         .single()
@@ -66,7 +66,7 @@ export default function JoinPage() {
         setCanWalk(guest.can_walk)
         setAddress(guest.address || '')
         setNeedsKidFriendly(guest.needs_kid_friendly)
-        setNeedsDogFree(guest.needs_dog_free)
+        setNeedsDogFriendly(guest.needs_dog_friendly)
         setNotes(guest.notes || '')
       }
       setChecking(false)
@@ -121,7 +121,7 @@ export default function JoinPage() {
       lat: canWalk ? lat : null,
       lng: canWalk ? lng : null,
       needs_kid_friendly: needsKidFriendly,
-      needs_dog_free: needsDogFree,
+      needs_dog_friendly: needsDogFriendly,
       notes: notes || null,
     }
 
@@ -291,14 +291,14 @@ export default function JoinPage() {
 
         <div className="flex items-center gap-3">
           <input
-            id="needsDogFree"
+            id="needsDogFriendly"
             type="checkbox"
-            checked={needsDogFree}
-            onChange={(e) => setNeedsDogFree(e.target.checked)}
+            checked={needsDogFriendly}
+            onChange={(e) => setNeedsDogFriendly(e.target.checked)}
             className="w-4 h-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
           />
-          <label htmlFor="needsDogFree" className="text-sm text-gray-700">
-            I need a dog-free dinner
+          <label htmlFor="needsDogFriendly" className="text-sm text-gray-700">
+            I need a dog-friendly dinner
           </label>
         </div>
 

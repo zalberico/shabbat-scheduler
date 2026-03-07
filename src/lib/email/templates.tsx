@@ -18,68 +18,30 @@ const styles = {
   footer: { color: '#9ca3af', fontSize: '12px', textAlign: 'center' as const, marginTop: '24px' },
 }
 
-export function HostMatchEmail({
-  hostName, weekOf, guests,
+export function MatchGroupEmail({
+  hostName, weekOf, startTime, kashrut, observance, kidsFriendly, dogsFriendly,
+  guests,
 }: {
   hostName: string
   weekOf: string
+  startTime: string
+  kashrut: string
+  observance?: string
+  kidsFriendly?: boolean
+  dogsFriendly?: boolean
   guests: { name: string; partySize: number; dietary: string[] }[]
 }) {
   const totalGuests = guests.reduce((sum, g) => sum + g.partySize, 0)
   return (
     <Html>
       <Head />
-      <Preview>{`You're hosting ${totalGuests} guests this Friday!`}</Preview>
+      <Preview>{`Shabbat dinner this Friday at ${hostName}'s!`}</Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
           <Section style={styles.card}>
-            <Text style={styles.h1}>Shabbat Shalom, {hostName}!</Text>
+            <Text style={styles.h1}>Shabbat Shalom!</Text>
             <Text style={styles.text}>
-              You&apos;re hosting dinner this Friday ({weekOf}). Here are your guests:
-            </Text>
-            {guests.map((g, i) => (
-              <Text key={i} style={styles.text}>
-                • <strong>{g.name}</strong> (party of {g.partySize})
-                {g.dietary.length > 0 && ` — Dietary: ${g.dietary.join(', ')}`}
-              </Text>
-            ))}
-            <Hr />
-            <Text style={styles.small}>
-              Please reply to your guests&apos; introduction emails with your address and any details.
-              Total guests: {totalGuests}
-            </Text>
-          </Section>
-          <Text style={styles.footer}>
-            Noe Valley Chavurah Shabbat Dinner Program
-          </Text>
-        </Container>
-      </Body>
-    </Html>
-  )
-}
-
-export function GuestMatchEmail({
-  guestName, hostName, startTime, kashrut, observance, kidsFriendly, dogsFriendly, weekOf,
-}: {
-  guestName: string
-  hostName: string
-  startTime: string
-  kashrut: string
-  observance?: string
-  kidsFriendly?: boolean
-  dogsFriendly?: boolean
-  weekOf: string
-}) {
-  return (
-    <Html>
-      <Head />
-      <Preview>You&apos;re having Shabbat dinner at {hostName}&apos;s!</Preview>
-      <Body style={styles.body}>
-        <Container style={styles.container}>
-          <Section style={styles.card}>
-            <Text style={styles.h1}>Shabbat Shalom, {guestName}!</Text>
-            <Text style={styles.text}>
-              You&apos;re having dinner this Friday ({weekOf}) at <strong>{hostName}&apos;s</strong> home.
+              <strong>{hostName}</strong> is hosting dinner this Friday ({weekOf}).
             </Text>
             <Text style={styles.text}>
               Start time: <strong>{startTime === 'candle_lighting' ? 'Candle lighting' : startTime}</strong>
@@ -96,11 +58,21 @@ export function GuestMatchEmail({
               <Text style={styles.text}>Kids welcome</Text>
             )}
             {dogsFriendly && (
-              <Text style={styles.text}>Dogs present in household</Text>
+              <Text style={styles.text}>Dogs welcome</Text>
             )}
             <Hr />
+            <Text style={{ ...styles.text, fontWeight: 'bold' as const }}>
+              Guests ({totalGuests} total):
+            </Text>
+            {guests.map((g, i) => (
+              <Text key={i} style={styles.text}>
+                • <strong>{g.name}</strong> (party of {g.partySize})
+                {g.dietary.length > 0 && ` — Dietary: ${g.dietary.join(', ')}`}
+              </Text>
+            ))}
+            <Hr />
             <Text style={styles.small}>
-              Your host will reply with their address. Have a wonderful Shabbat!
+              Reply all to this email to share your address and coordinate details. Have a wonderful Shabbat!
             </Text>
           </Section>
           <Text style={styles.footer}>

@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
-import { HostMatchEmail, GuestMatchEmail, UnmatchedEmail } from '@/lib/email/templates'
+import { MatchGroupEmail, UnmatchedEmail } from '@/lib/email/templates'
 import { getWeekOf, formatWeekOf, formatStartTime } from '@/lib/utils'
 import { KASHRUT_LEVELS, OBSERVANCE_LEVELS } from '@/lib/types/database'
 import { NextResponse } from 'next/server'
@@ -75,7 +75,6 @@ export async function POST(request: Request) {
 
       if (!guestEntries) continue
 
-      // Send host email
       // @ts-expect-error - joined query types
       const hostName = host.users.name
       // @ts-expect-error - joined query types
@@ -88,46 +87,34 @@ export async function POST(request: Request) {
         dietary: g.dietary_restrictions,
       }))
 
+      const guestEmails = guestEntries.map((g) => {
+        // @ts-expect-error - joined query types
+        return g.users.email as string
+      })
+
+      const kashrutLabel = KASHRUT_LEVELS.find((k) => k.value === host.kashrut_level)?.label || host.kashrut_level
+      const observanceLabel = OBSERVANCE_LEVELS.find((o) => o.value === host.observance_level)?.label
+
+      // Send a single group email to host + all guests
       try {
         await resend.emails.send({
           from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
-          to: hostEmail,
-          subject: `You're hosting this Friday! (${formattedWeek})`,
-          react: HostMatchEmail({ hostName, weekOf: formattedWeek, guests: guestList }),
+          to: [hostEmail, ...guestEmails],
+          subject: `Shabbat dinner this Friday at ${hostName}'s! (${formattedWeek})`,
+          react: MatchGroupEmail({
+            hostName,
+            weekOf: formattedWeek,
+            startTime: formatStartTime(host.start_time),
+            kashrut: kashrutLabel,
+            observance: observanceLabel,
+            kidsFriendly: host.kids_friendly,
+            dogsFriendly: host.dogs_friendly,
+            guests: guestList,
+          }),
         })
-        sent.push(`host:${hostEmail}`)
+        sent.push(`group:${hostEmail}+${guestEmails.join('+')}`)
       } catch (e) {
-        console.error('Failed to send host email:', e)
-      }
-
-      // Send guest emails
-      const kashrutLabel = KASHRUT_LEVELS.find((k) => k.value === host.kashrut_level)?.label || host.kashrut_level
-      const observanceLabel = OBSERVANCE_LEVELS.find((o) => o.value === host.observance_level)?.label
-      for (const guest of guestEntries) {
-        // @ts-expect-error - joined query types
-        const guestName = guest.users.name
-        // @ts-expect-error - joined query types
-        const guestEmail = guest.users.email
-        try {
-          await resend.emails.send({
-            from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
-            to: guestEmail,
-            subject: `Shabbat dinner at ${hostName}'s this Friday!`,
-            react: GuestMatchEmail({
-              guestName,
-              hostName,
-              startTime: formatStartTime(host.start_time),
-              kashrut: kashrutLabel,
-              observance: observanceLabel,
-              kidsFriendly: host.kids_friendly,
-              dogsFriendly: host.dogs_friendly,
-              weekOf: formattedWeek,
-            }),
-          })
-          sent.push(`guest:${guestEmail}`)
-        } catch (e) {
-          console.error('Failed to send guest email:', e)
-        }
+        console.error('Failed to send group match email:', e)
       }
     }
   }

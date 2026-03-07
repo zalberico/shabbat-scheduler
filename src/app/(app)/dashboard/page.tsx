@@ -154,7 +154,7 @@ export default async function DashboardPage() {
               <p>
                 {hostEntry.seats_available} seats &middot; {kashrutLabel(hostEntry.kashrut_level)} &middot; {formatStartTime(hostEntry.start_time)}
                 {hostEntry.kids_friendly && ' · Kids welcome'}
-                {hostEntry.dogs_friendly && ' · Dogs present'}
+                {hostEntry.dogs_friendly && ' · Dogs welcome'}
               </p>
               {hostEntry.observance_level && hostEntry.observance_level !== 'flexible' && (
                 <p>Observance: {OBSERVANCE_LEVELS.find((o) => o.value === hostEntry.observance_level)?.label || hostEntry.observance_level}</p>

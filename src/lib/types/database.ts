@@ -169,7 +169,7 @@ export interface Database {
           lng: number | null
           notes: string | null
           needs_kid_friendly: boolean
-          needs_dog_free: boolean
+          needs_dog_friendly: boolean
           status: GuestStatus
           created_at: string
         }
@@ -187,7 +187,7 @@ export interface Database {
           lng?: number | null
           notes?: string | null
           needs_kid_friendly?: boolean
-          needs_dog_free?: boolean
+          needs_dog_friendly?: boolean
           status?: GuestStatus
           created_at?: string
         }
@@ -202,7 +202,7 @@ export interface Database {
           lng?: number | null
           notes?: string | null
           needs_kid_friendly?: boolean
-          needs_dog_free?: boolean
+          needs_dog_friendly?: boolean
           status?: GuestStatus
         }
       }
