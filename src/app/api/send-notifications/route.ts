@@ -99,7 +99,8 @@ export async function POST(request: Request) {
       try {
         await resend.emails.send({
           from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
-          to: [hostEmail, ...guestEmails],
+          to: hostEmail,
+          cc: guestEmails,
           subject: `Shabbat dinner this Friday at ${hostName}'s! (${formattedWeek})`,
           react: MatchGroupEmail({
             hostName,
