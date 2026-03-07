@@ -270,9 +270,15 @@ export default function JoinPage() {
               className="input"
               placeholder="123 Main St, San Francisco, CA"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Used to match you with nearby hosts
-            </p>
+            {!address.trim() ? (
+              <p className="text-xs text-amber-600 mt-1">
+                Without an address, we can&apos;t match you by walking distance
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">
+                Used to match you with nearby hosts
+              </p>
+            )}
           </div>
         )}
 
