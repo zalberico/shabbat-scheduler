@@ -1,6 +1,6 @@
 import { requireAdmin } from '@/lib/auth'
 import { getWeekOf, formatWeekOf, formatStartTime } from '@/lib/utils'
-import { KASHRUT_LEVELS } from '@/lib/types/database'
+import { KASHRUT_LEVELS, OBSERVANCE_LEVELS } from '@/lib/types/database'
 import Link from 'next/link'
 
 export default async function AdminPage() {
@@ -11,7 +11,7 @@ export default async function AdminPage() {
   // Get this week's hosts
   const { data: hosts } = await adminClient
     .from('weekly_hosts')
-    .select('id, user_id, seats_available, kashrut_level, start_time, walking_distance_only, notes, status, created_at')
+    .select('id, user_id, seats_available, kashrut_level, observance_level, start_time, notes, status, created_at')
     .eq('week_of', weekOf)
     .order('created_at')
 
@@ -44,6 +44,8 @@ export default async function AdminPage() {
 
   const kashrutLabel = (level: string) =>
     KASHRUT_LEVELS.find((k) => k.value === level)?.label || level
+  const observanceLabel = (level: string) =>
+    OBSERVANCE_LEVELS.find((o) => o.value === level)?.label || level
 
   return (
     <div>
@@ -92,8 +94,7 @@ export default async function AdminPage() {
               <div className="flex-1">
                 <p className="font-medium">{getUserName(host.user_id)}</p>
                 <p className="text-sm text-gray-600">
-                  {host.seats_available} seats &middot; {kashrutLabel(host.kashrut_level)} &middot; {formatStartTime(host.start_time)}
-                  {host.walking_distance_only && ' · Walking only'}
+                  {host.seats_available} seats &middot; {kashrutLabel(host.kashrut_level)} &middot; {observanceLabel(host.observance_level)} &middot; {formatStartTime(host.start_time)}
                 </p>
               </div>
               <span className={`text-xs px-2 py-1 rounded-full ${

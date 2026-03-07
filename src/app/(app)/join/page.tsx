@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getWeekOf, formatWeekOf, isBeforeDeadline } from '@/lib/utils'
-import { KASHRUT_LEVELS, DIETARY_OPTIONS } from '@/lib/types/database'
-import type { KashrutLevel } from '@/lib/types/database'
+import { KASHRUT_LEVELS, OBSERVANCE_LEVELS, DIETARY_OPTIONS } from '@/lib/types/database'
+import type { KashrutLevel, ShabbatObservance } from '@/lib/types/database'
 
 export default function JoinPage() {
   const router = useRouter()
@@ -18,7 +18,9 @@ export default function JoinPage() {
   const [partySize, setPartySize] = useState(1)
   const [dietary, setDietary] = useState<string[]>([])
   const [kashrut, setKashrut] = useState<KashrutLevel>('none')
+  const [observance, setObservance] = useState<ShabbatObservance>('flexible')
   const [canWalk, setCanWalk] = useState(false)
+  const [address, setAddress] = useState('')
   const [notes, setNotes] = useState('')
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export default function JoinPage() {
       // Load user defaults
       const { data: profile } = await supabase
         .from('users')
-        .select('default_dietary_restrictions, default_kashrut_preference')
+        .select('default_dietary_restrictions, default_kashrut_preference, default_shabbat_observance')
         .eq('id', user.id)
         .single()
 
@@ -41,11 +43,14 @@ export default function JoinPage() {
         if (profile.default_kashrut_preference) {
           setKashrut(profile.default_kashrut_preference as KashrutLevel)
         }
+        if (profile.default_shabbat_observance) {
+          setObservance(profile.default_shabbat_observance as ShabbatObservance)
+        }
       }
 
       const { data: guest } = await supabase
         .from('weekly_guests')
-        .select('id, party_size, dietary_restrictions, kashrut_requirement, can_walk, notes')
+        .select('id, party_size, dietary_restrictions, kashrut_requirement, observance_requirement, can_walk, address, notes')
         .eq('user_id', user.id)
         .eq('week_of', weekOf)
         .single()
@@ -55,7 +60,9 @@ export default function JoinPage() {
         setPartySize(guest.party_size)
         setDietary(guest.dietary_restrictions)
         setKashrut(guest.kashrut_requirement as KashrutLevel)
+        setObservance((guest.observance_requirement as ShabbatObservance) || 'flexible')
         setCanWalk(guest.can_walk)
+        setAddress(guest.address || '')
         setNotes(guest.notes || '')
       }
       setChecking(false)
@@ -78,13 +85,37 @@ export default function JoinPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
+    // Geocode address if walking and address provided
+    let lat: number | null = null
+    let lng: number | null = null
+    if (canWalk && address.trim()) {
+      try {
+        const geoRes = await fetch('/api/geocode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: address.trim() }),
+        })
+        if (geoRes.ok) {
+          const geoData = await geoRes.json()
+          lat = geoData.lat
+          lng = geoData.lng
+        }
+      } catch {
+        // Continue without geocoding
+      }
+    }
+
     const payload = {
       user_id: user.id,
       week_of: weekOf,
       party_size: partySize,
       dietary_restrictions: dietary,
       kashrut_requirement: kashrut,
+      observance_requirement: observance,
       can_walk: canWalk,
+      address: canWalk && address.trim() ? address.trim() : null,
+      lat: canWalk ? lat : null,
+      lng: canWalk ? lng : null,
       notes: notes || null,
     }
 
@@ -195,6 +226,20 @@ export default function JoinPage() {
           </select>
         </div>
 
+        <div>
+          <label htmlFor="observance" className="label">Minimum observance level needed</label>
+          <select
+            id="observance"
+            value={observance}
+            onChange={(e) => setObservance(e.target.value as ShabbatObservance)}
+            className="input"
+          >
+            {OBSERVANCE_LEVELS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+
         <div className="flex items-center gap-3">
           <input
             id="canWalk"
@@ -207,6 +252,23 @@ export default function JoinPage() {
             I can walk to dinner (relevant for Shomer Shabbat hosts)
           </label>
         </div>
+
+        {canWalk && (
+          <div>
+            <label htmlFor="address" className="label">Your address (for walking distance matching)</label>
+            <input
+              id="address"
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className="input"
+              placeholder="123 Main St, San Francisco, CA"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Used to match you with nearby hosts
+            </p>
+          </div>
+        )}
 
         <div>
           <label htmlFor="notes" className="label">Notes (optional)</label>

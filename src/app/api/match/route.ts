@@ -1,9 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { KASHRUT_RANK } from '@/lib/types/database'
-import type { KashrutLevel } from '@/lib/types/database'
+import { KASHRUT_RANK, OBSERVANCE_RANK } from '@/lib/types/database'
+import type { KashrutLevel, ShabbatObservance } from '@/lib/types/database'
 import { NextResponse } from 'next/server'
-import { getWeekOf } from '@/lib/utils'
+import { getWeekOf, haversineDistanceMiles } from '@/lib/utils'
 
 async function isAuthorized(request: Request): Promise<boolean> {
   // Check cron secret
@@ -85,8 +85,9 @@ export async function POST(request: Request) {
     // Higher kashrut = more constrained
     const kashrutDiff = KASHRUT_RANK[b.kashrut_level as KashrutLevel] - KASHRUT_RANK[a.kashrut_level as KashrutLevel]
     if (kashrutDiff !== 0) return kashrutDiff
-    // Walking only = more constrained
-    if (a.walking_distance_only !== b.walking_distance_only) return a.walking_distance_only ? -1 : 1
+    // Higher observance = more constrained
+    const obsDiff = OBSERVANCE_RANK[(b.observance_level as ShabbatObservance) || 'flexible'] - OBSERVANCE_RANK[(a.observance_level as ShabbatObservance) || 'flexible']
+    if (obsDiff !== 0) return obsDiff
     // Fewer seats = more constrained
     return a.seats_available - b.seats_available
   })
@@ -97,6 +98,8 @@ export async function POST(request: Request) {
   for (const host of sortedHosts) {
     let remainingSeats = host.seats_available
     const tableGuests: string[] = []
+
+    const hostObsRank = OBSERVANCE_RANK[(host.observance_level as ShabbatObservance) || 'flexible']
 
     // Score and sort eligible guests
     const eligibleGuests = guests
@@ -109,8 +112,20 @@ export async function POST(request: Request) {
         const hostLevel = KASHRUT_RANK[host.kashrut_level as KashrutLevel]
         if (guestReq > hostLevel) return false
 
+        // Hard constraint: observance compatibility
+        const guestObsReq = OBSERVANCE_RANK[(g.observance_requirement as ShabbatObservance) || 'flexible']
+        if (guestObsReq > hostObsRank) return false
+
         // Hard constraint: walking distance
-        if (host.walking_distance_only && !g.can_walk) return false
+        if (g.can_walk && g.lat != null && g.lng != null) {
+          if (host.lat != null && host.lng != null) {
+            const dist = haversineDistanceMiles(g.lat, g.lng, host.lat, host.lng)
+            if (dist > 1.0) return false
+          } else {
+            // Guest needs to walk but host didn't share address
+            return false
+          }
+        }
 
         return true
       })
@@ -134,6 +149,12 @@ export async function POST(request: Request) {
           : []
         const overlap = g.dietary_restrictions.filter((d) => hostDietary.includes(d)).length
         score += overlap * 2
+
+        // Walking proximity bonus
+        if (g.lat != null && g.lng != null && host.lat != null && host.lng != null) {
+          const dist = haversineDistanceMiles(g.lat, g.lng, host.lat, host.lng)
+          if (dist < 0.5) score += 3
+        }
 
         return { guest: g, score }
       })
