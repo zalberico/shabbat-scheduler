@@ -116,6 +116,8 @@ export interface Database {
           lat: number | null
           lng: number | null
           notes: string | null
+          kids_friendly: boolean
+          dogs_friendly: boolean
           status: HostStatus
           created_at: string
         }
@@ -132,6 +134,8 @@ export interface Database {
           lat?: number | null
           lng?: number | null
           notes?: string | null
+          kids_friendly?: boolean
+          dogs_friendly?: boolean
           status?: HostStatus
           created_at?: string
         }
@@ -145,6 +149,8 @@ export interface Database {
           lat?: number | null
           lng?: number | null
           notes?: string | null
+          kids_friendly?: boolean
+          dogs_friendly?: boolean
           status?: HostStatus
         }
       }
@@ -162,6 +168,8 @@ export interface Database {
           lat: number | null
           lng: number | null
           notes: string | null
+          needs_kid_friendly: boolean
+          needs_dog_free: boolean
           status: GuestStatus
           created_at: string
         }
@@ -178,6 +186,8 @@ export interface Database {
           lat?: number | null
           lng?: number | null
           notes?: string | null
+          needs_kid_friendly?: boolean
+          needs_dog_free?: boolean
           status?: GuestStatus
           created_at?: string
         }
@@ -191,6 +201,8 @@ export interface Database {
           lat?: number | null
           lng?: number | null
           notes?: string | null
+          needs_kid_friendly?: boolean
+          needs_dog_free?: boolean
           status?: GuestStatus
         }
       }

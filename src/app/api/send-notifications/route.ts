@@ -119,6 +119,8 @@ export async function POST(request: Request) {
               startTime: formatStartTime(host.start_time),
               kashrut: kashrutLabel,
               observance: observanceLabel,
+              kidsFriendly: host.kids_friendly,
+              dogsFriendly: host.dogs_friendly,
               weekOf: formattedWeek,
             }),
           })

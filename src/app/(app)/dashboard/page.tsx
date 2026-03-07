@@ -151,7 +151,11 @@ export default async function DashboardPage() {
               </span>
             </div>
             <div className="text-sm text-gray-600 space-y-1">
-              <p>{hostEntry.seats_available} seats &middot; {kashrutLabel(hostEntry.kashrut_level)} &middot; {formatStartTime(hostEntry.start_time)}</p>
+              <p>
+                {hostEntry.seats_available} seats &middot; {kashrutLabel(hostEntry.kashrut_level)} &middot; {formatStartTime(hostEntry.start_time)}
+                {hostEntry.kids_friendly && ' · Kids welcome'}
+                {hostEntry.dogs_friendly && ' · Dogs present'}
+              </p>
               {hostEntry.observance_level && hostEntry.observance_level !== 'flexible' && (
                 <p>Observance: {OBSERVANCE_LEVELS.find((o) => o.value === hostEntry.observance_level)?.label || hostEntry.observance_level}</p>
               )}
