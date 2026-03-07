@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -21,11 +22,27 @@ export async function GET(request: Request) {
       if (!profile) {
         // Create profile from auth metadata
         const metadata = data.user.user_metadata
+        const phone = metadata?.phone || ''
+
+        // Verify phone is on allowlist before creating profile
+        if (!phone) {
+          return NextResponse.redirect(`${origin}/login?error=auth`)
+        }
+        const adminClient = createAdminClient()
+        const { data: allowed } = await adminClient
+          .from('phone_allowlist')
+          .select('id')
+          .eq('phone', phone)
+          .single()
+        if (!allowed) {
+          return NextResponse.redirect(`${origin}/login?error=auth`)
+        }
+
         await supabase.from('users').insert({
           id: data.user.id,
           email: data.user.email!,
           name: metadata?.name || data.user.email!.split('@')[0],
-          phone: metadata?.phone || '',
+          phone,
         })
       }
 
