@@ -116,11 +116,13 @@ export default async function AdminPage() {
           return (
             <div key={week}>
               {/* Week separator with inline stats */}
-              <div className="flex items-center gap-3 mb-4">
-                <h2 className="text-lg font-semibold whitespace-nowrap">
-                  {isThisWeek ? 'This Friday' : 'Friday'}, {formatWeekOf(week)}
-                </h2>
-                <div className="h-px bg-gray-200 flex-1" />
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mb-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <h2 className="text-lg font-semibold whitespace-nowrap">
+                    {isThisWeek ? 'This Friday' : 'Friday'}, {formatWeekOf(week)}
+                  </h2>
+                  <div className="h-px bg-gray-200 flex-1" />
+                </div>
                 <span className="text-sm text-gray-500 whitespace-nowrap">
                   {seatsOpen} seats open &middot; {unmatchedGuestCount} guests unmatched
                 </span>
