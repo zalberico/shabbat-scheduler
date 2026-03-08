@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { getWeekOf } from '@/lib/utils'
+import { getWeekOf, formatWeekOf } from '@/lib/utils'
+import { Resend } from 'resend'
+import { HostCancelledEmail } from '@/lib/email/templates'
 
 export async function POST(request: Request) {
   const supabase = createClient()
@@ -17,7 +19,7 @@ export async function POST(request: Request) {
   // Find host entry
   const { data: hostEntry } = await adminClient
     .from('weekly_hosts')
-    .select('id')
+    .select('id, user_id')
     .eq('user_id', user.id)
     .eq('week_of', weekOf)
     .neq('status', 'cancelled')
@@ -26,6 +28,15 @@ export async function POST(request: Request) {
   if (!hostEntry) {
     return NextResponse.json({ error: 'No active host entry found' }, { status: 404 })
   }
+
+  // Get host name for the email
+  const { data: hostUser } = await adminClient
+    .from('users')
+    .select('name')
+    .eq('id', hostEntry.user_id)
+    .single()
+
+  const hostName = hostUser?.name || 'Your host'
 
   // Cancel the host
   await adminClient
@@ -51,6 +62,17 @@ export async function POST(request: Request) {
     if (matchGuests?.length) {
       const guestIds = matchGuests.map((mg) => mg.guest_id)
 
+      // Get guest details for emails BEFORE modifying data
+      const { data: guestEntries } = await adminClient
+        .from('weekly_guests')
+        .select('user_id')
+        .in('id', guestIds)
+
+      const guestUserIds = guestEntries?.map((g) => g.user_id) || []
+      const { data: guestUsers } = guestUserIds.length
+        ? await adminClient.from('users').select('name, email').in('id', guestUserIds)
+        : { data: [] }
+
       // Update linked weekly_guests: unmatched, clear selected_host_id
       await adminClient
         .from('weekly_guests')
@@ -62,6 +84,31 @@ export async function POST(request: Request) {
         .from('match_guests')
         .delete()
         .eq('match_id', match.id)
+
+      // Send cancellation emails to guests
+      if (guestUsers?.length && process.env.RESEND_API_KEY) {
+        const resend = new Resend(process.env.RESEND_API_KEY)
+        const formattedWeek = formatWeekOf(weekOf)
+        const appUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://shabbat-scheduler.vercel.app'
+
+        for (const guest of guestUsers) {
+          try {
+            await resend.emails.send({
+              from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
+              to: guest.email,
+              subject: `${hostName}'s dinner on ${formattedWeek} has been cancelled`,
+              react: HostCancelledEmail({
+                guestName: guest.name.split(' ')[0],
+                hostName: hostName.split(' ')[0],
+                weekOf: formattedWeek,
+                appUrl: `${appUrl}/browse`,
+              }),
+            })
+          } catch (e) {
+            console.error('Failed to send cancellation email:', e)
+          }
+        }
+      }
     }
 
     // Delete match

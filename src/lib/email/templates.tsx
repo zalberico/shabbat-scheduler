@@ -123,6 +123,118 @@ export function UnmatchedEmail({
   )
 }
 
+export function HostCancelledEmail({
+  guestName, hostName, weekOf, appUrl,
+}: {
+  guestName: string
+  hostName: string
+  weekOf: string
+  appUrl: string
+}) {
+  return (
+    <Html>
+      <Head />
+      <Preview>{`${hostName}'s dinner on ${weekOf} has been cancelled`}</Preview>
+      <Body style={styles.body}>
+        <Container style={styles.container}>
+          <Section style={styles.card}>
+            <Text style={styles.h1}>Hi {guestName},</Text>
+            <Text style={styles.text}>
+              Unfortunately, <strong>{hostName}&apos;s</strong> Shabbat dinner on Friday ({weekOf}) has been cancelled.
+            </Text>
+            <Text style={styles.text}>
+              You can browse other available dinners or sign up for the matching pool — we&apos;ll
+              try to find you another spot!
+            </Text>
+            <Link href={appUrl} style={styles.button}>
+              Find another dinner
+            </Link>
+          </Section>
+          <Text style={styles.footer}>
+            Noe Valley Chavurah Shabbat Dinner Program
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  )
+}
+
+export function GuestCancelledEmail({
+  hostName, guestName, weekOf, seatsRemaining, totalSeats,
+}: {
+  hostName: string
+  guestName: string
+  weekOf: string
+  seatsRemaining: number
+  totalSeats: number
+}) {
+  return (
+    <Html>
+      <Head />
+      <Preview>{`${guestName} cancelled their signup for your dinner`}</Preview>
+      <Body style={styles.body}>
+        <Container style={styles.container}>
+          <Section style={styles.card}>
+            <Text style={styles.h1}>Hi {hostName},</Text>
+            <Text style={styles.text}>
+              <strong>{guestName}</strong> has cancelled their signup for your Shabbat dinner on Friday ({weekOf}).
+            </Text>
+            <Text style={styles.text}>
+              You now have {seatsRemaining} of {totalSeats} seats available.
+            </Text>
+          </Section>
+          <Text style={styles.footer}>
+            Noe Valley Chavurah Shabbat Dinner Program
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  )
+}
+
+export function DinnerFullEmail({
+  hostName, weekOf, guests,
+}: {
+  hostName: string
+  weekOf: string
+  guests: { name: string; partySize: number; dietary: string[] }[]
+}) {
+  const totalGuests = guests.reduce((sum, g) => sum + g.partySize, 0)
+  return (
+    <Html>
+      <Head />
+      <Preview>Your Shabbat dinner is full!</Preview>
+      <Body style={styles.body}>
+        <Container style={styles.container}>
+          <Section style={styles.card}>
+            <Text style={styles.h1}>Your dinner is full, {hostName}!</Text>
+            <Text style={styles.text}>
+              All seats for your Shabbat dinner on Friday ({weekOf}) have been filled.
+            </Text>
+            <Hr />
+            <Text style={{ ...styles.text, fontWeight: 'bold' as const }}>
+              Your guests ({totalGuests} total):
+            </Text>
+            {guests.map((g, i) => (
+              <Text key={i} style={styles.text}>
+                • <strong>{g.name}</strong> (party of {g.partySize})
+                {g.dietary.length > 0 && ` — Dietary: ${g.dietary.join(', ')}`}
+              </Text>
+            ))}
+            <Hr />
+            <Text style={styles.small}>
+              More guests may still sign up if you increase your seat count. Shabbat Shalom!
+            </Text>
+          </Section>
+          <Text style={styles.footer}>
+            Noe Valley Chavurah Shabbat Dinner Program
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  )
+}
+
 export function ReminderEmail({
   name, appUrl,
 }: {
