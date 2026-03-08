@@ -72,6 +72,7 @@ export default function HostPage() {
         .select('id, seats_available, kashrut_level, observance_level, start_time, address, kids_friendly, dogs_friendly, notes')
         .eq('user_id', user.id)
         .eq('week_of', weekOf)
+        .neq('status', 'cancelled')
         .single()
 
       if (host) {
@@ -156,7 +157,23 @@ export default function HostPage() {
         .update(payload)
         .eq('id', existing)
     } else {
-      result = await supabase.from('weekly_hosts').insert(payload)
+      // Check for a cancelled entry for this week (unique constraint: user_id + week_of)
+      const { data: cancelled } = await supabase
+        .from('weekly_hosts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('week_of', weekOf)
+        .eq('status', 'cancelled')
+        .single()
+
+      if (cancelled) {
+        result = await supabase
+          .from('weekly_hosts')
+          .update({ ...payload, status: 'open' })
+          .eq('id', cancelled.id)
+      } else {
+        result = await supabase.from('weekly_hosts').insert(payload)
+      }
     }
 
     if (result.error) {
