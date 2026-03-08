@@ -24,6 +24,7 @@
 - **Matching algorithm**: `src/app/api/match/route.ts`
 - **Email templates**: `src/lib/email/templates.tsx`
 - **Supabase clients**: `src/lib/supabase/` (client.ts, server.ts, admin.ts, middleware.ts)
+- **Week picker**: `src/components/week-picker.tsx` (reusable, used by host + admin pages)
 - **Cron config**: `vercel.json`
 
 ## Common Patterns
@@ -32,6 +33,10 @@
 - Admin pages call `requireAdmin()` which returns `{ user, supabase, adminClient }`
 - Forms use client components with `'use client'` and `useState`/`useEffect`
 - `getWeekOf()` returns the next Friday as `YYYY-MM-DD`
+- `isBeforeDeadline(weekOf?)` accepts optional week string for per-week deadline checks
+- `getFutureFridays(count)` returns next N Fridays; `isValidFutureFriday(weekOf)` validates a date is a real future Friday
+- **Multi-week hosting**: Hosts can list dinners up to 6 weeks ahead. Browse page shows all upcoming dinners in a flat list (no week filter). Host/admin pages use `WeekPicker` component with `?week=` URL param. API routes accept `week_of` from body/query, default to `getWeekOf()`.
+- **Cron jobs are this-week only**: `/api/cron/match` and `/api/cron/remind` always use `getWeekOf()`. Future-week matching must be triggered manually by admin via `/admin/match`.
 - `@ts-expect-error` or `as any` casts on Supabase joined query results (e.g., `host.users.name`) due to type inference limitations
 - Match notifications use a single group email per match (`to: [hostEmail, ...guestEmails]`) via Resend, so everyone can reply-all. Template is `MatchGroupEmail`.
 
