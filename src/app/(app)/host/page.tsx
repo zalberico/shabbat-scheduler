@@ -192,7 +192,7 @@ export default function HostPage() {
             id="seats"
             type="number"
             min={1}
-            value={seats}
+            value={seats || ''}
             onChange={(e) => setSeats(Number(e.target.value))}
             className="input w-24"
             required
