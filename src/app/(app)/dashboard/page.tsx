@@ -278,6 +278,22 @@ export default async function DashboardPage() {
             )}
           </div>
         )}
+
+        {/* Future weeks CTA */}
+        {(hostEntry || guestEntry) && (
+          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+            <p className="text-sm text-gray-500">Want to plan ahead?</p>
+            <div className="flex gap-2">
+              <Link href="/host" className="text-sm text-[var(--color-primary)] font-medium hover:underline">
+                Host a future dinner
+              </Link>
+              <span className="text-gray-300">|</span>
+              <Link href="/browse" className="text-sm text-[var(--color-primary)] font-medium hover:underline">
+                Browse upcoming
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Upcoming Dinners */}
