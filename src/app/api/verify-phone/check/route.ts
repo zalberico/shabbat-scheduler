@@ -1,4 +1,4 @@
-import { checkVerificationCode } from '@/lib/twilio'
+import { checkVerificationCode, getTwilioCheckError, logTwilioError } from '@/lib/twilio'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
@@ -11,11 +11,10 @@ export async function POST(request: Request) {
   try {
     const verified = await checkVerificationCode(phone, code)
     return NextResponse.json({ verified })
-  } catch (e: any) {
-    console.error('Failed to check verification code:', e)
-    return NextResponse.json(
-      { error: 'Verification failed. Please try again.' },
-      { status: 500 }
-    )
+  } catch (e: unknown) {
+    const phoneLast4 = typeof phone === 'string' ? phone.slice(-4) : undefined
+    logTwilioError('check_verification_failed', e, phoneLast4)
+    const { userMessage, httpStatus } = getTwilioCheckError(e)
+    return NextResponse.json({ error: userMessage }, { status: httpStatus })
   }
 }
