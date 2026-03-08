@@ -35,8 +35,36 @@ export default function SignupPage() {
       return
     }
 
+    if (data.skipSms) {
+      // SMS verification disabled (10DLC pending) — skip to magic link
+      await sendMagicLink()
+      return
+    }
+
     setStep(2)
     setLoading(false)
+  }
+
+  async function sendMagicLink() {
+    const supabase = createClient()
+    const { error: authError } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: {
+          name,
+          phone: normalizedPhone,
+        },
+      },
+    })
+
+    if (authError) {
+      setError(authError.message)
+      setLoading(false)
+    } else {
+      setStep(3)
+      setLoading(false)
+    }
   }
 
   async function handleVerifyCode(e: React.FormEvent) {
@@ -64,26 +92,7 @@ export default function SignupPage() {
       return
     }
 
-    // Code verified — send magic link
-    const supabase = createClient()
-    const { error: authError } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: {
-          name,
-          phone: normalizedPhone,
-        },
-      },
-    })
-
-    if (authError) {
-      setError(authError.message)
-      setLoading(false)
-    } else {
-      setStep(3)
-      setLoading(false)
-    }
+    await sendMagicLink()
   }
 
   async function handleResendCode() {
@@ -218,7 +227,7 @@ export default function SignupPage() {
             required
           />
           <p className="text-xs text-gray-500 mt-1">
-            Must match a number in our WhatsApp group. We&apos;ll send a verification code.
+            Must match a number in our WhatsApp group.
           </p>
         </div>
 
