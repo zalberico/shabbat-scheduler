@@ -283,7 +283,7 @@ export default function HostPage() {
             onChange={(e) => setNotes(e.target.value)}
             className="input"
             rows={3}
-            placeholder="Any additional info for your guests..."
+            placeholder="e.g. Potluck style — bring a dish to share! No phones at the table. We have kids ages 3 & 6. Vegetarian meal. Doors open 30 min before candle lighting."
           />
         </div>
 
