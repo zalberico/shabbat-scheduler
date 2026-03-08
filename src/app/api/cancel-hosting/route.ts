@@ -3,14 +3,15 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { getWeekOf } from '@/lib/utils'
 
-export async function POST() {
+export async function POST(request: Request) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const weekOf = getWeekOf()
+  const body = await request.json().catch(() => null)
+  const weekOf = body?.week_of || getWeekOf()
   const adminClient = createAdminClient()
 
   // Find host entry

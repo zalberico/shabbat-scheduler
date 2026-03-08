@@ -1,5 +1,5 @@
 import { clsx, type ClassValue } from 'clsx'
-import { nextFriday, format, isBefore, startOfDay } from 'date-fns'
+import { nextFriday, format, isBefore, startOfDay, addWeeks, parseISO } from 'date-fns'
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs)
@@ -23,14 +23,30 @@ export function formatWeekOf(dateStr: string): string {
   return format(new Date(dateStr + 'T12:00:00'), 'MMMM d, yyyy')
 }
 
-export function isBeforeDeadline(): boolean {
+export function isBeforeDeadline(weekOf?: string): boolean {
   const now = new Date()
-  const friday = getNextFriday()
+  const friday = weekOf
+    ? startOfDay(parseISO(weekOf))
+    : getNextFriday()
   // Deadline is Wednesday 11:59 PM PT before the Friday
   const deadline = new Date(friday)
   deadline.setDate(deadline.getDate() - 2) // Wednesday
   deadline.setHours(23, 59, 59, 999)
   return isBefore(now, deadline)
+}
+
+export function getFutureFridays(count: number): string[] {
+  const first = getNextFriday()
+  return Array.from({ length: count }, (_, i) =>
+    format(addWeeks(first, i), 'yyyy-MM-dd')
+  )
+}
+
+export function isValidFutureFriday(weekOf: string): boolean {
+  const date = parseISO(weekOf)
+  if (isNaN(date.getTime())) return false
+  if (date.getDay() !== 5) return false
+  return date >= startOfDay(getNextFriday())
 }
 
 export function normalizePhone(phone: string): string {

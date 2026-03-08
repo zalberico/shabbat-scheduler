@@ -2,11 +2,12 @@ import { requireAdmin } from '@/lib/auth'
 import { getWeekOf, formatWeekOf, formatStartTime } from '@/lib/utils'
 import { KASHRUT_LEVELS, OBSERVANCE_LEVELS } from '@/lib/types/database'
 import Link from 'next/link'
+import AdminWeekPicker from './week-picker-wrapper'
 
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }: { searchParams: { week?: string } }) {
   const { adminClient } = await requireAdmin()
 
-  const weekOf = getWeekOf()
+  const weekOf = searchParams.week || getWeekOf()
 
   // Get this week's hosts
   const { data: hosts } = await adminClient
@@ -50,7 +51,9 @@ export default async function AdminPage() {
   return (
     <div>
       <h1 className="page-title">Admin Dashboard</h1>
-      <p className="text-gray-600 mb-6">Week of {formatWeekOf(weekOf)}</p>
+      <div className="mb-6">
+        <AdminWeekPicker selected={weekOf} basePath="/admin" />
+      </div>
 
       {/* Quick stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { getWeekOf, isBeforeDeadline } from '@/lib/utils'
+import { getWeekOf, isBeforeDeadline, isValidFutureFriday } from '@/lib/utils'
 
 export async function POST(request: Request) {
   const supabase = createClient()
@@ -10,16 +10,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (!isBeforeDeadline()) {
-    return NextResponse.json({ error: 'Signups are closed for this week' }, { status: 400 })
-  }
-
   const body = await request.json().catch(() => null)
   if (!body?.host_id || !body?.party_size) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  const weekOf = getWeekOf()
+  const weekOf = body.week_of || getWeekOf()
+
+  if (body.week_of && !isValidFutureFriday(body.week_of)) {
+    return NextResponse.json({ error: 'Invalid week' }, { status: 400 })
+  }
+
+  if (!isBeforeDeadline(weekOf)) {
+    return NextResponse.json({ error: 'Signups are closed for this week' }, { status: 400 })
+  }
   const adminClient = createAdminClient()
 
   // Check user doesn't already have a guest entry this week
@@ -156,14 +160,15 @@ export async function POST(request: Request) {
   return NextResponse.json({ success: true })
 }
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const weekOf = getWeekOf()
+  const { searchParams } = new URL(request.url)
+  const weekOf = searchParams.get('week') || getWeekOf()
   const adminClient = createAdminClient()
 
   // Find user's direct signup for this week

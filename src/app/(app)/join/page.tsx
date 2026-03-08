@@ -156,8 +156,13 @@ export default function JoinPage() {
       <div>
         <h1 className="page-title">Join a Dinner</h1>
         <div className="card text-center py-8">
-          <p className="text-gray-600">Signups for this week are closed.</p>
-          <p className="text-sm text-gray-500 mt-2">Check back Sunday to sign up for next week.</p>
+          <p className="text-gray-600">Signups for this Friday are closed.</p>
+          <p className="text-sm text-gray-500 mt-2">
+            You can still{' '}
+            <Link href="/browse" className="text-[var(--color-primary)] underline">
+              browse and sign up for future weeks
+            </Link>.
+          </p>
         </div>
       </div>
     )
