@@ -1,16 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getWeekOf, formatWeekOf, isBeforeDeadline } from '@/lib/utils'
 import { KASHRUT_LEVELS, OBSERVANCE_LEVELS, DIETARY_OPTIONS } from '@/lib/types/database'
 import type { KashrutLevel, ShabbatObservance } from '@/lib/types/database'
+import WeekPicker from '@/components/week-picker'
 
 export default function JoinPage() {
   const router = useRouter()
-  const weekOf = getWeekOf()
+  const searchParams = useSearchParams()
+  const [weekOf, setWeekOf] = useState(searchParams.get('week') || getWeekOf())
   const [loading, setLoading] = useState(false)
   const [checking, setChecking] = useState(true)
   const [existing, setExisting] = useState<string | null>(null)
@@ -26,6 +28,13 @@ export default function JoinPage() {
   const [needsDogFriendly, setNeedsDogFriendly] = useState(false)
   const [notes, setNotes] = useState('')
 
+  // Store defaults so we can reset when changing weeks
+  const [defaults, setDefaults] = useState<{
+    dietary: string[]
+    kashrut: KashrutLevel
+    observance: ShabbatObservance
+  } | null>(null)
+
   useEffect(() => {
     async function checkExisting() {
       const supabase = createClient()
@@ -40,14 +49,16 @@ export default function JoinPage() {
         .single()
 
       if (profile) {
-        if (profile.default_dietary_restrictions?.length) {
-          setDietary(profile.default_dietary_restrictions)
+        const d = {
+          dietary: profile.default_dietary_restrictions || [],
+          kashrut: (profile.default_kashrut_preference as KashrutLevel) || 'none',
+          observance: (profile.default_shabbat_observance as ShabbatObservance) || 'flexible',
         }
-        if (profile.default_kashrut_preference) {
-          setKashrut(profile.default_kashrut_preference as KashrutLevel)
-        }
-        if (profile.default_shabbat_observance) {
-          setObservance(profile.default_shabbat_observance as ShabbatObservance)
+        setDefaults(d)
+        if (!existing) {
+          if (d.dietary.length) setDietary(d.dietary)
+          setKashrut(d.kashrut)
+          setObservance(d.observance)
         }
       }
 
@@ -69,11 +80,31 @@ export default function JoinPage() {
         setNeedsKidFriendly(guest.needs_kid_friendly)
         setNeedsDogFriendly(guest.needs_dog_friendly)
         setNotes(guest.notes || '')
+      } else {
+        // Reset form for a new week (keep defaults)
+        setExisting(null)
+        setPartySize(1)
+        setCanWalk(false)
+        setAddress('')
+        setNeedsKidFriendly(false)
+        setNeedsDogFriendly(false)
+        setNotes('')
+        if (defaults) {
+          setDietary(defaults.dietary)
+          setKashrut(defaults.kashrut)
+          setObservance(defaults.observance)
+        }
       }
       setChecking(false)
     }
+    setChecking(true)
     checkExisting()
-  }, [weekOf])
+  }, [weekOf]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleWeekChange(newWeek: string) {
+    setWeekOf(newWeek)
+    router.push(`/join?week=${newWeek}`, { scroll: false })
+  }
 
   function toggleDietary(item: string) {
     setDietary((prev) =>
@@ -151,14 +182,17 @@ export default function JoinPage() {
     router.push('/dashboard')
   }
 
-  if (!isBeforeDeadline()) {
+  if (!isBeforeDeadline(weekOf)) {
     return (
       <div>
         <h1 className="page-title">Join a Dinner</h1>
+        <div className="mb-4">
+          <WeekPicker selected={weekOf} onChange={handleWeekChange} />
+        </div>
         <div className="card text-center py-8">
           <p className="text-gray-600">Signups for this Friday are closed.</p>
           <p className="text-sm text-gray-500 mt-2">
-            You can still{' '}
+            Select a future Friday above, or{' '}
             <Link href="/browse" className="text-[var(--color-primary)] underline">
               browse and sign up for future weeks
             </Link>.
@@ -184,9 +218,9 @@ export default function JoinPage() {
       <h1 className="page-title">
         {existing ? 'Update Your Signup' : 'Join a Dinner'}
       </h1>
-      <p className="text-gray-600 mb-6">
-        For Friday, {formatWeekOf(weekOf)}
-      </p>
+      <div className="mb-6">
+        <WeekPicker selected={weekOf} onChange={handleWeekChange} />
+      </div>
 
       <div className="card mb-6 bg-[var(--color-primary)]/5 border border-[var(--color-primary)]/20">
         <p className="text-sm text-gray-700">

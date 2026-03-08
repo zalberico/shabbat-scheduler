@@ -3,10 +3,28 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { getWeekOf, formatWeekOf, isBeforeDeadline } from '@/lib/utils'
+import { getWeekOf, isBeforeDeadline, formatStartTime } from '@/lib/utils'
 import { KASHRUT_LEVELS, OBSERVANCE_LEVELS, START_TIMES } from '@/lib/types/database'
 import type { KashrutLevel, ShabbatObservance } from '@/lib/types/database'
 import WeekPicker from '@/components/week-picker'
+
+interface GuestInfo {
+  name: string
+  partySize: number
+  dietary: string[]
+  kashrut: string
+  observance: string
+  needsKidFriendly: boolean
+  needsDogFriendly: boolean
+  notes: string | null
+  signupType: string
+}
+
+const kashrutLabel = (level: string) =>
+  KASHRUT_LEVELS.find((k) => k.value === level)?.label || level
+
+const observanceLabel = (level: string) =>
+  OBSERVANCE_LEVELS.find((o) => o.value === level)?.label || level
 
 export default function HostPage() {
   const router = useRouter()
@@ -16,6 +34,9 @@ export default function HostPage() {
   const [checking, setChecking] = useState(true)
   const [existing, setExisting] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [mode, setMode] = useState<'overview' | 'edit'>('overview')
+  const [guests, setGuests] = useState<GuestInfo[]>([])
+  const [seatsUsed, setSeatsUsed] = useState(0)
 
   const [seats, setSeats] = useState(4)
   const [kashrut, setKashrut] = useState<KashrutLevel>('none')
@@ -63,9 +84,24 @@ export default function HostPage() {
         setKidsFriendly(host.kids_friendly ? 'yes' : 'no')
         setDogsFriendly(host.dogs_friendly ? 'yes' : 'no')
         setNotes(host.notes || '')
+
+        // Fetch guest data
+        try {
+          const res = await fetch(`/api/host-guests?week=${weekOf}`)
+          if (res.ok) {
+            const data = await res.json()
+            setGuests(data.guests || [])
+            setSeatsUsed(data.seatsUsed || 0)
+          }
+        } catch {
+          // Continue without guest data
+        }
       }
       setChecking(false)
     }
+    setMode('overview')
+    setGuests([])
+    setSeatsUsed(0)
     checkExisting()
   }, [weekOf])
 
@@ -127,7 +163,13 @@ export default function HostPage() {
       setError(result.error.message)
       setLoading(false)
     } else {
-      router.push('/dashboard')
+      if (existing) {
+        // Return to overview after editing
+        setMode('overview')
+        setLoading(false)
+      } else {
+        router.push('/dashboard')
+      }
     }
   }
 
@@ -148,7 +190,10 @@ export default function HostPage() {
     router.push(`/host?week=${newWeek}`, { scroll: false })
   }
 
-  if (!isBeforeDeadline(weekOf)) {
+  const beforeDeadline = isBeforeDeadline(weekOf)
+
+  // Past deadline with no existing entry — show closed message
+  if (!beforeDeadline && !existing && !checking) {
     return (
       <div>
         <h1 className="page-title">Host a Dinner</h1>
@@ -174,6 +219,95 @@ export default function HostPage() {
     )
   }
 
+  // Existing entry in overview mode
+  if (existing && mode === 'overview') {
+    return (
+      <div>
+        <h1 className="page-title">Your Dinner</h1>
+        <div className="mb-6">
+          <WeekPicker selected={weekOf} onChange={handleWeekChange} />
+        </div>
+
+        {/* Dinner Details */}
+        <div className="card mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Dinner Details</h2>
+            {beforeDeadline && (
+              <button
+                onClick={() => setMode('edit')}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Edit
+              </button>
+            )}
+          </div>
+          <div className="text-sm text-gray-600 space-y-1">
+            <p>
+              {seats} seats &middot; {kashrutLabel(kashrut)} &middot; {formatStartTime(startTime)}
+            </p>
+            {observance !== 'flexible' && (
+              <p>Observance: {observanceLabel(observance)}</p>
+            )}
+            <p>
+              {kidsFriendly === 'yes' ? 'Kids welcome' : 'No kids'}
+              {' \u00B7 '}
+              {dogsFriendly === 'yes' ? 'Dogs welcome' : 'No dogs'}
+            </p>
+            {notes && <p className="italic">&ldquo;{notes}&rdquo;</p>}
+          </div>
+        </div>
+
+        {/* Guest List */}
+        <div className="card mb-4">
+          <h2 className="text-lg font-semibold mb-3">
+            Your Guests
+            <span className="text-sm font-normal text-gray-500 ml-2">
+              {seatsUsed} of {seats} seats filled
+            </span>
+          </h2>
+          {guests.length === 0 ? (
+            <p className="text-gray-500 text-sm">No guests signed up yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {guests.map((guest, i) => (
+                <div key={i} className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{guest.name}</span>
+                    <span className="text-sm text-gray-500">Party of {guest.partySize}</span>
+                  </div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    <p>
+                      {kashrutLabel(guest.kashrut)}
+                      {guest.dietary.length > 0 && ` \u00B7 ${guest.dietary.join(', ')}`}
+                    </p>
+                    {guest.observance !== 'flexible' && (
+                      <p>{observanceLabel(guest.observance)}</p>
+                    )}
+                    {guest.needsKidFriendly && <p>Needs kid-friendly</p>}
+                    {guest.needsDogFriendly && <p>Needs dog-friendly</p>}
+                    {guest.notes && (
+                      <p className="italic mt-1">&ldquo;{guest.notes}&rdquo;</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Cancel button */}
+        {beforeDeadline && (
+          <div className="flex gap-3">
+            <button type="button" onClick={handleCancel} className="btn-danger">
+              Cancel hosting
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Edit mode or new entry — show form
   const showAddressField = observance === 'traditional' || observance === 'shomer_shabbat'
 
   return (
@@ -309,6 +443,11 @@ export default function HostPage() {
           <button type="submit" disabled={loading} className="btn-primary">
             {loading ? 'Saving...' : existing ? 'Update' : 'Sign up to host'}
           </button>
+          {existing && (
+            <button type="button" onClick={() => setMode('overview')} className="btn-secondary">
+              Back
+            </button>
+          )}
           {existing && (
             <button type="button" onClick={handleCancel} className="btn-danger">
               Cancel hosting
