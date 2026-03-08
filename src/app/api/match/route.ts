@@ -40,20 +40,36 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient()
 
-  // Get all open hosts for this week
+  // Get all open/matched hosts for this week (matched hosts may have direct signups with remaining seats)
   const { data: hosts } = await supabase
     .from('weekly_hosts')
     .select('*, users!inner(id, name, email)')
     .eq('week_of', weekOf)
-    .eq('status', 'open')
+    .in('status', ['open', 'matched'])
     .order('kashrut_level', { ascending: false })
 
-  // Get all pending guests for this week
+  // Get all pending match_pool guests for this week
   const { data: guests } = await supabase
     .from('weekly_guests')
     .select('*, users!inner(id, name, email)')
     .eq('week_of', weekOf)
     .eq('status', 'pending')
+    .eq('signup_type', 'match_pool')
+
+  // Calculate used seats per host from direct signups
+  const { data: directSignups } = await supabase
+    .from('weekly_guests')
+    .select('selected_host_id, party_size')
+    .eq('week_of', weekOf)
+    .eq('signup_type', 'direct')
+    .not('selected_host_id', 'is', null)
+
+  const directSeatsUsed = new Map<string, number>()
+  directSignups?.forEach((g) => {
+    if (g.selected_host_id) {
+      directSeatsUsed.set(g.selected_host_id, (directSeatsUsed.get(g.selected_host_id) || 0) + g.party_size)
+    }
+  })
 
   if (!hosts?.length || !guests?.length) {
     return NextResponse.json({
@@ -99,7 +115,8 @@ export async function POST(request: Request) {
   const matchResults: { hostId: string; guestIds: string[] }[] = []
 
   for (const host of sortedHosts) {
-    let remainingSeats = host.seats_available
+    let remainingSeats = host.seats_available - (directSeatsUsed.get(host.id) || 0)
+    if (remainingSeats <= 0) continue
     const tableGuests: string[] = []
 
     const hostObsRank = OBSERVANCE_RANK[(host.observance_level as ShabbatObservance) || 'flexible']
@@ -184,23 +201,37 @@ export async function POST(request: Request) {
 
   // Write matches to database
   for (const result of matchResults) {
-    const { data: match, error: matchError } = await supabase
+    // Check if a match row already exists (from direct signups)
+    let matchId: string
+    const { data: existingMatch } = await supabase
       .from('matches')
-      .insert({ week_of: weekOf, host_id: result.hostId })
       .select('id')
+      .eq('host_id', result.hostId)
+      .eq('week_of', weekOf)
       .single()
 
-    if (matchError || !match) continue
+    if (existingMatch) {
+      matchId = existingMatch.id
+    } else {
+      const { data: newMatch, error: matchError } = await supabase
+        .from('matches')
+        .insert({ week_of: weekOf, host_id: result.hostId })
+        .select('id')
+        .single()
+
+      if (matchError || !newMatch) continue
+      matchId = newMatch.id
+    }
 
     // Insert match guests
     await supabase.from('match_guests').insert(
       result.guestIds.map((guestId) => ({
-        match_id: match.id,
+        match_id: matchId,
         guest_id: guestId,
       }))
     )
 
-    // Update host status
+    // Update host status (if not already matched)
     await supabase
       .from('weekly_hosts')
       .update({ status: 'matched' })
@@ -213,7 +244,7 @@ export async function POST(request: Request) {
       .in('id', result.guestIds)
   }
 
-  // Mark unmatched guests
+  // Mark unmatched guests (only match_pool guests)
   const unmatchedGuests = guests.filter((g) => !assignedGuests.has(g.id))
   if (unmatchedGuests.length > 0) {
     await supabase

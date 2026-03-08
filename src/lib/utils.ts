@@ -53,6 +53,17 @@ export function formatStartTime(time: string): string {
   return time
 }
 
+export function approximateArea(address: string | null): string {
+  if (!address?.trim()) return 'Location not shared'
+  // Remove street number and name, keep city/state/zip
+  // Typical format: "123 Main St, Brooklyn, NY 11201"
+  const parts = address.split(',').map((p) => p.trim())
+  if (parts.length >= 2) {
+    return parts.slice(1).join(', ')
+  }
+  return 'Location not shared'
+}
+
 export function haversineDistanceMiles(
   lat1: number, lng1: number,
   lat2: number, lng2: number

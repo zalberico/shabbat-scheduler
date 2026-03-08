@@ -131,11 +131,7 @@ export default function HostPage() {
 
   async function handleCancel() {
     if (!existing) return
-    const supabase = createClient()
-    await supabase
-      .from('weekly_hosts')
-      .update({ status: 'cancelled' })
-      .eq('id', existing)
+    await fetch('/api/cancel-hosting', { method: 'POST' })
     router.push('/dashboard')
   }
 
@@ -180,7 +176,6 @@ export default function HostPage() {
             id="seats"
             type="number"
             min={1}
-            max={20}
             value={seats}
             onChange={(e) => setSeats(Number(e.target.value))}
             className="input w-24"
