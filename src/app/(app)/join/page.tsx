@@ -325,7 +325,7 @@ export default function JoinPage() {
             onChange={(e) => setNotes(e.target.value)}
             className="input"
             rows={3}
-            placeholder="Anything else the host should know..."
+            placeholder="e.g. Severe nut allergy. Happy to bring a side dish or dessert! Kids are 2 & 5. We'd love to meet other young families."
           />
         </div>
 
