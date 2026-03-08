@@ -403,14 +403,14 @@ export default function BrowsePage() {
                   </p>
                   <p>
                     {formatStartTime(host.start_time)}
-                    {host.kids_friendly && ' · Kids welcome'}
-                    {host.dogs_friendly && ' · Dogs welcome'}
+                    {' · '}{host.kids_friendly ? 'Kids welcome' : 'No kids'}
+                    {' · '}{host.dogs_friendly ? 'Dogs welcome' : 'No dogs'}
                   </p>
                   <p className="text-gray-500">{approximateArea(host.address)}</p>
                 </div>
 
                 {host.notes && (
-                  <p className="text-sm text-gray-500 italic mb-3 line-clamp-2">
+                  <p className="text-sm text-gray-500 italic mb-3">
                     &ldquo;{host.notes}&rdquo;
                   </p>
                 )}
