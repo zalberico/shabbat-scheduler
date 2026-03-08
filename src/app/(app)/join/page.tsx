@@ -204,7 +204,7 @@ export default function JoinPage() {
             id="partySize"
             type="number"
             min={1}
-            value={partySize}
+            value={partySize || ''}
             onChange={(e) => setPartySize(Number(e.target.value))}
             className="input w-24"
             required

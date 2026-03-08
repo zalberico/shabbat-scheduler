@@ -443,7 +443,7 @@ export default function BrowsePage() {
                         type="number"
                         min={1}
                         max={remaining}
-                        value={partySize}
+                        value={partySize || ''}
                         onChange={(e) => setPartySize(Number(e.target.value))}
                         className="input w-24"
                         required
