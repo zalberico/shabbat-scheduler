@@ -253,6 +253,9 @@ export default function BrowsePage() {
       status: 'matched',
       selected_host_id: host.id,
     }])
+    setHosts((prev) => prev.map((h) =>
+      h.id === host.id ? { ...h, seatsUsed: h.seatsUsed + partySize } : h
+    ))
     setExpandedHost(null)
     setSubmitting(false)
     router.refresh()
