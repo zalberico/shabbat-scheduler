@@ -16,9 +16,13 @@ export default async function AppLayout({
 
   const { data: profile } = await supabase
     .from('users')
-    .select('is_admin')
+    .select('is_admin, is_banned')
     .eq('id', user.id)
     .single()
+
+  if (profile?.is_banned) {
+    redirect('/login?error=banned')
+  }
 
   return (
     <div className="min-h-screen flex flex-col">

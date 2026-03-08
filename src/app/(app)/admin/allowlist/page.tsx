@@ -1,26 +1,53 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { normalizePhone } from '@/lib/utils'
 
+interface AllowlistUser {
+  name: string
+  email: string
+  is_banned: boolean
+}
+
+interface AllowlistEntry {
+  id: string
+  phone: string
+  uploaded_at: string
+  user: AllowlistUser | null
+}
+
 export default function AllowlistPage() {
-  const [phones, setPhones] = useState<{ id: string; phone: string; uploaded_at: string }[]>([])
+  const [entries, setEntries] = useState<AllowlistEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [newPhone, setNewPhone] = useState('')
   const [csvText, setCsvText] = useState('')
   const [result, setResult] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
 
   const loadAllowlist = useCallback(async () => {
     const res = await fetch('/api/admin/allowlist')
     const data = await res.json()
-    setPhones(Array.isArray(data) ? data : [])
+    setEntries(Array.isArray(data) ? data : [])
     setLoading(false)
   }, [])
 
   useEffect(() => {
     loadAllowlist()
   }, [loadAllowlist])
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return entries
+    const q = search.toLowerCase()
+    return entries.filter((e) =>
+      e.phone.toLowerCase().includes(q) ||
+      e.user?.name.toLowerCase().includes(q) ||
+      e.user?.email.toLowerCase().includes(q)
+    )
+  }, [entries, search])
+
+  const registered = useMemo(() => filtered.filter((e) => e.user !== null), [filtered])
+  const unclaimed = useMemo(() => filtered.filter((e) => e.user === null), [filtered])
 
   async function addSinglePhone(e: React.FormEvent) {
     e.preventDefault()
@@ -122,26 +149,81 @@ export default function AllowlistPage() {
         </div>
       )}
 
-      {/* Current allowlist */}
-      <h2 className="font-semibold mb-3">Current allowlist ({phones.length} numbers)</h2>
+      {/* Search */}
+      <div className="mb-4">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="input"
+          placeholder="Search by phone, name, or email..."
+        />
+      </div>
+
       {loading ? (
         <p className="text-gray-500">Loading...</p>
-      ) : phones.length === 0 ? (
+      ) : entries.length === 0 ? (
         <p className="text-gray-500">No phone numbers yet.</p>
       ) : (
-        <div className="space-y-1">
-          {phones.map((p) => (
-            <div key={p.id} className="card flex items-center justify-between !py-2 !px-4">
-              <span className="text-sm font-mono">{p.phone}</span>
-              <button
-                onClick={() => removePhone(p.id)}
-                className="text-xs text-red-600 hover:text-red-800"
-              >
-                Remove
-              </button>
+        <>
+          {/* Registered section */}
+          <h2 className="font-semibold mb-3">Registered ({registered.length})</h2>
+          {registered.length === 0 ? (
+            <p className="text-gray-500 text-sm mb-6">
+              {search ? 'No matches.' : 'No registered users yet.'}
+            </p>
+          ) : (
+            <div className="space-y-1 mb-6">
+              {registered.map((entry) => (
+                <div key={entry.id} className="card flex items-center justify-between !py-2 !px-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-medium ${entry.user!.is_banned ? 'line-through text-gray-400' : ''}`}>
+                        {entry.user!.name}
+                      </span>
+                      {entry.user!.is_banned && (
+                        <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">banned</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500">{entry.user!.email}</p>
+                    <p className="text-xs text-gray-400 font-mono">{entry.phone}</p>
+                  </div>
+                  <button
+                    onClick={() => removePhone(entry.id)}
+                    className="text-xs text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* Unclaimed section */}
+          <h2 className="font-semibold mb-3">Unclaimed ({unclaimed.length})</h2>
+          {unclaimed.length === 0 ? (
+            <p className="text-gray-500 text-sm">
+              {search ? 'No matches.' : 'All phone numbers have been claimed.'}
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {unclaimed.map((entry) => (
+                <div key={entry.id} className="card flex items-center justify-between !py-2 !px-4">
+                  <div>
+                    <span className="text-sm font-mono">{entry.phone}</span>
+                    <span className="text-xs text-gray-400 italic ml-2">Not yet registered</span>
+                  </div>
+                  <button
+                    onClick={() => removePhone(entry.id)}
+                    className="text-xs text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   )
