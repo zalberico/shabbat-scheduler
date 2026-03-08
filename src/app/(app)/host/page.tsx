@@ -1,15 +1,17 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getWeekOf, formatWeekOf, isBeforeDeadline } from '@/lib/utils'
 import { KASHRUT_LEVELS, OBSERVANCE_LEVELS, START_TIMES } from '@/lib/types/database'
 import type { KashrutLevel, ShabbatObservance } from '@/lib/types/database'
+import WeekPicker from '@/components/week-picker'
 
 export default function HostPage() {
   const router = useRouter()
-  const weekOf = getWeekOf()
+  const searchParams = useSearchParams()
+  const [weekOf, setWeekOf] = useState(searchParams.get('week') || getWeekOf())
   const [loading, setLoading] = useState(false)
   const [checking, setChecking] = useState(true)
   const [existing, setExisting] = useState<string | null>(null)
@@ -131,17 +133,31 @@ export default function HostPage() {
 
   async function handleCancel() {
     if (!existing) return
-    await fetch('/api/cancel-hosting', { method: 'POST' })
+    await fetch('/api/cancel-hosting', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ week_of: weekOf }),
+    })
     router.push('/dashboard')
   }
 
-  if (!isBeforeDeadline()) {
+  function handleWeekChange(newWeek: string) {
+    setWeekOf(newWeek)
+    setExisting(null)
+    setChecking(true)
+    router.push(`/host?week=${newWeek}`, { scroll: false })
+  }
+
+  if (!isBeforeDeadline(weekOf)) {
     return (
       <div>
         <h1 className="page-title">Host a Dinner</h1>
+        <div className="mb-4">
+          <WeekPicker selected={weekOf} onChange={handleWeekChange} />
+        </div>
         <div className="card text-center py-8">
-          <p className="text-gray-600">Signups for this week are closed.</p>
-          <p className="text-sm text-gray-500 mt-2">Check back Sunday to sign up for next week.</p>
+          <p className="text-gray-600">Signups for this Friday are closed.</p>
+          <p className="text-sm text-gray-500 mt-2">Select a future Friday above to host an upcoming dinner.</p>
         </div>
       </div>
     )
@@ -165,9 +181,9 @@ export default function HostPage() {
       <h1 className="page-title">
         {existing ? 'Update Your Hosting' : 'Host a Dinner'}
       </h1>
-      <p className="text-gray-600 mb-6">
-        For Friday, {formatWeekOf(weekOf)}
-      </p>
+      <div className="mb-6">
+        <WeekPicker selected={weekOf} onChange={handleWeekChange} />
+      </div>
 
       <form onSubmit={handleSubmit} className="card space-y-5">
         <div>

@@ -234,9 +234,72 @@ export default async function DashboardPage() {
         )}
       </div>
 
+      {/* Upcoming Dinners */}
+      <UpcomingDinners userId={user.id} currentWeek={weekOf} />
+
       {/* Weekly stats */}
       <div className="grid grid-cols-2 gap-4">
         <WeekStats weekOf={weekOf} />
+      </div>
+    </div>
+  )
+}
+
+async function UpcomingDinners({ userId, currentWeek }: { userId: string; currentWeek: string }) {
+  const adminClient = createAdminClient()
+
+  const { data: futureHosts } = await adminClient
+    .from('weekly_hosts')
+    .select('week_of, seats_available, status')
+    .eq('user_id', userId)
+    .gt('week_of', currentWeek)
+    .neq('status', 'cancelled')
+    .order('week_of')
+
+  const { data: futureGuests } = await adminClient
+    .from('weekly_guests')
+    .select('week_of, status')
+    .eq('user_id', userId)
+    .gt('week_of', currentWeek)
+    .neq('status', 'unmatched')
+    .order('week_of')
+
+  const entries = [
+    ...(futureHosts || []).map((h) => ({
+      weekOf: h.week_of,
+      role: 'Hosting' as const,
+      detail: `${h.seats_available} seats`,
+      link: `/host?week=${h.week_of}`,
+    })),
+    ...(futureGuests || []).map((g) => ({
+      weekOf: g.week_of,
+      role: 'Guest' as const,
+      detail: g.status,
+      link: `/browse?week=${g.week_of}`,
+    })),
+  ].sort((a, b) => a.weekOf.localeCompare(b.weekOf))
+
+  if (entries.length === 0) return null
+
+  return (
+    <div className="card mb-6">
+      <h2 className="text-lg font-semibold text-[var(--color-primary)] mb-3">Upcoming Dinners</h2>
+      <div className="space-y-2">
+        {entries.map((entry) => (
+          <Link
+            key={`${entry.weekOf}-${entry.role}`}
+            href={entry.link}
+            className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+          >
+            <div>
+              <p className="font-medium text-sm">Friday, {formatWeekOf(entry.weekOf)}</p>
+              <p className="text-xs text-gray-500">
+                {entry.role === 'Hosting' ? `🏠 Hosting (${entry.detail})` : `🍽️ ${entry.role}`}
+              </p>
+            </div>
+            <span className="text-xs text-gray-400">&rarr;</span>
+          </Link>
+        ))}
       </div>
     </div>
   )

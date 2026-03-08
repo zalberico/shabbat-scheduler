@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { getWeekOf, formatWeekOf } from '@/lib/utils'
+import WeekPicker from '@/components/week-picker'
 
 interface MatchDisplay {
   matchId: string
@@ -11,7 +13,8 @@ interface MatchDisplay {
 }
 
 export default function AdminMatchPage() {
-  const weekOf = getWeekOf()
+  const searchParams = useSearchParams()
+  const [weekOf, setWeekOf] = useState(searchParams.get('week') || getWeekOf())
   const [matches, setMatches] = useState<MatchDisplay[]>([])
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
@@ -20,11 +23,11 @@ export default function AdminMatchPage() {
 
   const loadMatches = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/admin/matches')
+    const res = await fetch(`/api/admin/matches?week=${weekOf}`)
     const data = await res.json()
     setMatches(Array.isArray(data) ? data : [])
     setLoading(false)
-  }, [])
+  }, [weekOf])
 
   useEffect(() => {
     loadMatches()
@@ -72,7 +75,17 @@ export default function AdminMatchPage() {
   return (
     <div>
       <h1 className="page-title">Manage Matches</h1>
-      <p className="text-gray-600 mb-6">Week of {formatWeekOf(weekOf)}</p>
+      <div className="mb-6">
+        <WeekPicker
+          selected={weekOf}
+          onChange={(w) => {
+            setWeekOf(w)
+            setMatches([])
+            setResult(null)
+            window.history.pushState(null, '', `/admin/match?week=${w}`)
+          }}
+        />
+      </div>
 
       <div className="flex flex-wrap gap-3 mb-6">
         <button onClick={runMatching} disabled={running} className="btn-primary">

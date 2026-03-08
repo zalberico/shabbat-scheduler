@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getWeekOf, formatWeekOf, isBeforeDeadline, formatStartTime, approximateArea, haversineDistanceMiles } from '@/lib/utils'
 import { KASHRUT_LEVELS, KASHRUT_RANK, OBSERVANCE_LEVELS, OBSERVANCE_RANK, DIETARY_OPTIONS } from '@/lib/types/database'
 import type { KashrutLevel, ShabbatObservance } from '@/lib/types/database'
+import WeekPicker from '@/components/week-picker'
 
 interface HostCard {
   id: string
@@ -40,8 +41,9 @@ type ExistingSignup = {
 
 export default function BrowsePage() {
   const router = useRouter()
-  const weekOf = getWeekOf()
-  const beforeDeadline = isBeforeDeadline()
+  const searchParams = useSearchParams()
+  const [weekOf, setWeekOf] = useState(searchParams.get('week') || getWeekOf())
+  const beforeDeadline = isBeforeDeadline(weekOf)
 
   const [loading, setLoading] = useState(true)
   const [hosts, setHosts] = useState<HostCard[]>([])
@@ -64,6 +66,16 @@ export default function BrowsePage() {
   const [error, setError] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [warnings, setWarnings] = useState<string[]>([])
+
+  function handleWeekChange(newWeek: string) {
+    setWeekOf(newWeek)
+    setHosts([])
+    setExistingSignup(null)
+    setIsHosting(false)
+    setExpandedHost(null)
+    setLoading(true)
+    router.push(`/browse?week=${newWeek}`, { scroll: false })
+  }
 
   useEffect(() => {
     async function loadData() {
@@ -225,6 +237,7 @@ export default function BrowsePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         host_id: host.id,
+        week_of: weekOf,
         party_size: partySize,
         dietary_restrictions: dietary,
         kashrut_requirement: kashrut,
@@ -257,7 +270,7 @@ export default function BrowsePage() {
 
   async function handleCancelDirectSignup() {
     setCancelling(true)
-    const res = await fetch('/api/direct-signup', { method: 'DELETE' })
+    const res = await fetch(`/api/direct-signup?week=${weekOf}`, { method: 'DELETE' })
     if (res.ok) {
       setExistingSignup(null)
       setCancelling(false)
@@ -298,7 +311,9 @@ export default function BrowsePage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="page-title mb-0">Browse Dinners</h1>
-          <p className="text-gray-600">Friday, {formatWeekOf(weekOf)}</p>
+          <div className="mt-1">
+            <WeekPicker selected={weekOf} onChange={handleWeekChange} />
+          </div>
         </div>
         {beforeDeadline ? (
           <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">

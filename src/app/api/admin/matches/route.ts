@@ -18,12 +18,13 @@ async function checkAdmin() {
   return profile?.is_admin === true
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!(await checkAdmin())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const weekOf = getWeekOf()
+  const { searchParams } = new URL(request.url)
+  const weekOf = searchParams.get('week') || getWeekOf()
   const supabase = createAdminClient()
 
   const { data: matchRows } = await supabase
