@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendVerificationCode } from '@/lib/twilio'
+import { sendVerificationCode, getTwilioSendError, logTwilioError } from '@/lib/twilio'
 import { NextResponse } from 'next/server'
 
 // In-memory rate limiter: 3 attempts per phone per 10 minutes
@@ -50,11 +50,10 @@ export async function POST(request: Request) {
   try {
     await sendVerificationCode(phone)
     return NextResponse.json({ ok: true })
-  } catch (e: any) {
-    console.error('Failed to send verification SMS:', e)
-    return NextResponse.json(
-      { error: 'Failed to send verification code. Please try again.' },
-      { status: 500 }
-    )
+  } catch (e: unknown) {
+    const phoneLast4 = typeof phone === 'string' ? phone.slice(-4) : undefined
+    logTwilioError('send_verification_failed', e, phoneLast4)
+    const { userMessage, httpStatus } = getTwilioSendError(e)
+    return NextResponse.json({ error: userMessage }, { status: httpStatus })
   }
 }
