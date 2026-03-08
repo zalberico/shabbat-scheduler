@@ -47,6 +47,11 @@ export async function POST(request: Request) {
     )
   }
 
+  // Skip SMS when Twilio is not yet approved (10DLC pending)
+  if (process.env.SKIP_SMS_VERIFICATION === 'true') {
+    return NextResponse.json({ ok: true, skipSms: true })
+  }
+
   try {
     await sendVerificationCode(phone)
     return NextResponse.json({ ok: true })
