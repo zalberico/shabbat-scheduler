@@ -291,303 +291,332 @@ export default function BrowsePage() {
     )
   }
 
-  const thisWeekSignup = existingSignups.find((s) => s.week_of === thisWeek)
-  const isHostingThisWeek = hostingWeeks.includes(thisWeek)
+  // Group hosts by week
+  const weekGroups = new Map<string, HostCard[]>()
+  hosts.forEach((host) => {
+    const group = weekGroups.get(host.week_of) || []
+    group.push(host)
+    weekGroups.set(host.week_of, group)
+  })
+
+  // Collect all weeks (from hosts, signups, and hosting) to ensure no week is missed
+  const allWeeks = Array.from(new Set([
+    ...Array.from(weekGroups.keys()),
+    ...existingSignups.map((s) => s.week_of),
+    ...hostingWeeks,
+  ])).sort()
 
   return (
     <div>
       <h1 className="page-title mb-6">Browse Dinners</h1>
 
-      {/* Match me to any dinner CTA — this week only */}
-      {!thisWeekSignup && !isHostingThisWeek && isBeforeDeadline(thisWeek) && (
-        <div className="card mb-6 bg-gradient-to-r from-[var(--color-primary)]/5 to-[var(--color-primary)]/10 border border-[var(--color-primary)]/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-semibold text-[var(--color-primary)]">Match Me to Any Dinner</h2>
-              <p className="text-sm text-gray-600 mt-1">
-                New here? We&apos;ll find the perfect dinner for you based on your preferences.
-              </p>
-            </div>
-            <Link href="/join" className="btn-primary whitespace-nowrap ml-4">
-              Sign Me Up
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* Signed up banners */}
-      {existingSignups.map((signup) => {
-        const hostName = signup.signup_type === 'direct' && signup.selected_host_id
-          ? hosts.find((h) => h.id === signup.selected_host_id)?.hostName
-          : null
-        return (
-          <div key={signup.id || signup.week_of} className="card mb-4 bg-green-50 border border-green-200">
-            <div className="flex items-center justify-between">
-              <div>
-                {signup.signup_type === 'direct' ? (
-                  <p className="text-sm text-green-800">
-                    You&apos;re signed up for <strong>{hostName}&apos;s</strong> dinner on Friday, {formatWeekOf(signup.week_of)}!
-                  </p>
-                ) : (
-                  <p className="text-sm text-green-800">
-                    You&apos;re in the matching pool for Friday, {formatWeekOf(signup.week_of)}.{' '}
-                    <Link href="/join" className="underline">Edit your preferences</Link>
-                  </p>
-                )}
-              </div>
-              {signup.signup_type === 'direct' && (
-                <button
-                  onClick={() => handleCancelDirectSignup(signup.week_of)}
-                  disabled={cancelling}
-                  className="btn-danger text-sm ml-3"
-                >
-                  {cancelling ? 'Cancelling...' : 'Cancel'}
-                </button>
-              )}
-            </div>
-          </div>
-        )
-      })}
-
-      {/* Hosting banners */}
-      {hostingWeeks.map((week) => (
-        <div key={week} className="card mb-4 bg-blue-50 border border-blue-200">
-          <p className="text-sm text-blue-800">
-            You&apos;re hosting on Friday, {formatWeekOf(week)}!{' '}
-            <Link href={`/host?week=${week}`} className="underline">Manage your dinner</Link>
-          </p>
-        </div>
-      ))}
-
-      {/* Host cards */}
-      {hosts.length === 0 ? (
+      {allWeeks.length === 0 ? (
         <div className="card text-center py-8">
           <p className="text-gray-600">No upcoming dinners available yet.</p>
           <p className="text-sm text-gray-500 mt-2">Check back later or sign up to host!</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {hosts.map((host) => {
-            const remaining = host.seats_available - host.seatsUsed
-            const isFull = remaining <= 0
-            const isExpanded = expandedHost === host.id
-            const weekOpen = isBeforeDeadline(host.week_of)
-            const weekSignup = existingSignups.find((s) => s.week_of === host.week_of)
-            const weekHosting = hostingWeeks.includes(host.week_of)
-            const canSignUp = weekOpen && !weekSignup && !weekHosting && !isFull
+        <div className="space-y-8">
+          {allWeeks.map((week) => {
+            const weekHosts = weekGroups.get(week) || []
+            const weekSignup = existingSignups.find((s) => s.week_of === week)
+            const weekHosting = hostingWeeks.includes(week)
+            const weekOpen = isBeforeDeadline(week)
+            const isThisWeek = week === thisWeek
+
+            const signupHostName = weekSignup?.signup_type === 'direct' && weekSignup.selected_host_id
+              ? hosts.find((h) => h.id === weekSignup.selected_host_id)?.hostName
+              : null
 
             return (
-              <div key={host.id} className="card">
-                <div className="flex items-start justify-between mb-1">
-                  <h3 className="font-semibold text-[var(--color-primary)]">
-                    {host.hostName}&apos;s Dinner
-                  </h3>
-                  <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
-                    isFull ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                  }`}>
-                    {isFull ? 'Full' : `${remaining} of ${host.seats_available} seats left`}
-                  </span>
+              <div key={week}>
+                {/* Week header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <h2 className="text-lg font-semibold whitespace-nowrap">
+                    {isThisWeek ? 'This Friday' : 'Friday'}, {formatWeekOf(week)}
+                  </h2>
+                  <div className="h-px bg-gray-200 flex-1" />
+                  {!weekOpen && (
+                    <span className="text-xs text-gray-400 whitespace-nowrap">Signups closed</span>
+                  )}
                 </div>
 
-                <p className="text-xs text-gray-500 font-medium mb-2">
-                  Friday, {formatWeekOf(host.week_of)}{host.week_of === thisWeek ? ' (this week)' : ''}
-                  {!weekOpen && ' · Signups closed'}
-                </p>
-
-                <div className="text-sm text-gray-600 space-y-1 mb-3">
-                  <p>
-                    {kashrutLabel(host.kashrut_level)}
-                    {host.observance_level !== 'flexible' && (
-                      <> &middot; {OBSERVANCE_LEVELS.find((o) => o.value === host.observance_level)?.label}</>
-                    )}
-                  </p>
-                  <p>
-                    {formatStartTime(host.start_time)}
-                    {' · '}{host.kids_friendly ? 'Kids welcome' : 'No kids'}
-                    {' · '}{host.dogs_friendly ? 'Dogs welcome' : 'No dogs'}
-                  </p>
-                  <p className="text-gray-500">{approximateArea(host.address)}</p>
-                </div>
-
-                {host.notes && (
-                  <p className="text-sm text-gray-500 italic mb-3">
-                    &ldquo;{host.notes}&rdquo;
-                  </p>
-                )}
-
-                {canSignUp && !isExpanded && (
-                  <button
-                    onClick={() => toggleExpand(host.id)}
-                    className="btn-primary w-full text-sm"
-                  >
-                    Sign Up
-                  </button>
-                )}
-
-                {/* Expanded signup form */}
-                {isExpanded && (
-                  <div className="mt-4 pt-4 border-t border-gray-200 space-y-4">
-                    {warnings.length > 0 && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                        {warnings.map((w, i) => (
-                          <p key={i} className="text-sm text-yellow-800">{w}</p>
-                        ))}
-                        <p className="text-xs text-yellow-600 mt-1">You can still sign up if you&apos;re okay with this.</p>
-                      </div>
-                    )}
-
-                    <div>
-                      <label htmlFor={`partySize-${host.id}`} className="label">Party size</label>
-                      <input
-                        id={`partySize-${host.id}`}
-                        type="number"
-                        min={1}
-                        max={remaining}
-                        value={partySize || ''}
-                        onChange={(e) => setPartySize(Number(e.target.value))}
-                        className="input w-24"
-                        required
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Including yourself ({remaining} seats available)</p>
-                    </div>
-
-                    <div>
-                      <span className="label">Dietary restrictions</span>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {DIETARY_OPTIONS.map((item) => (
-                          <button
-                            key={item}
-                            type="button"
-                            onClick={() => toggleDietary(item)}
-                            className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                              dietary.includes(item)
-                                ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                                : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
-                            }`}
-                          >
-                            {item}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label htmlFor={`kashrut-${host.id}`} className="label">Minimum kashrut level needed</label>
-                      <select
-                        id={`kashrut-${host.id}`}
-                        value={kashrut}
-                        onChange={(e) => setKashrut(e.target.value as KashrutLevel)}
-                        className="input"
-                      >
-                        {KASHRUT_LEVELS.map((k) => (
-                          <option key={k.value} value={k.value}>{k.label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label htmlFor={`observance-${host.id}`} className="label">Minimum observance level needed</label>
-                      <select
-                        id={`observance-${host.id}`}
-                        value={observance}
-                        onChange={(e) => setObservance(e.target.value as ShabbatObservance)}
-                        className="input"
-                      >
-                        {OBSERVANCE_LEVELS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <input
-                        id={`canWalk-${host.id}`}
-                        type="checkbox"
-                        checked={canWalk}
-                        onChange={(e) => setCanWalk(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-                      />
-                      <label htmlFor={`canWalk-${host.id}`} className="text-sm text-gray-700">
-                        I don&apos;t drive on Shabbat
-                      </label>
-                    </div>
-
-                    {canWalk && (
+                {/* Per-week status banners */}
+                {weekSignup && (
+                  <div className="card mb-4 bg-green-50 border border-green-200">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <label htmlFor={`address-${host.id}`} className="label">Your address (for walking distance)</label>
-                        <input
-                          id={`address-${host.id}`}
-                          type="text"
-                          value={address}
-                          onChange={(e) => setAddress(e.target.value)}
-                          className="input"
-                          placeholder="123 Main St, San Francisco, CA"
-                        />
+                        {weekSignup.signup_type === 'direct' ? (
+                          <p className="text-sm text-green-800">
+                            You&apos;re signed up for <strong>{signupHostName}&apos;s</strong> dinner!
+                          </p>
+                        ) : (
+                          <p className="text-sm text-green-800">
+                            You&apos;re in the matching pool.{' '}
+                            <Link href={`/join?week=${week}`} className="underline">Edit your preferences</Link>
+                          </p>
+                        )}
                       </div>
-                    )}
-
-                    <div className="flex items-center gap-3">
-                      <input
-                        id={`kids-${host.id}`}
-                        type="checkbox"
-                        checked={needsKidFriendly}
-                        onChange={(e) => setNeedsKidFriendly(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-                      />
-                      <label htmlFor={`kids-${host.id}`} className="text-sm text-gray-700">
-                        I need a kid-friendly dinner
-                      </label>
+                      {weekSignup.signup_type === 'direct' && (
+                        <button
+                          onClick={() => handleCancelDirectSignup(weekSignup.week_of)}
+                          disabled={cancelling}
+                          className="btn-danger text-sm ml-3"
+                        >
+                          {cancelling ? 'Cancelling...' : 'Cancel'}
+                        </button>
+                      )}
                     </div>
+                  </div>
+                )}
 
-                    <div className="flex items-center gap-3">
-                      <input
-                        id={`dogs-${host.id}`}
-                        type="checkbox"
-                        checked={needsDogFriendly}
-                        onChange={(e) => setNeedsDogFriendly(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-                      />
-                      <label htmlFor={`dogs-${host.id}`} className="text-sm text-gray-700">
-                        I need a dog-friendly dinner
-                      </label>
+                {weekHosting && (
+                  <div className="card mb-4 bg-blue-50 border border-blue-200">
+                    <p className="text-sm text-blue-800">
+                      You&apos;re hosting this week!{' '}
+                      <Link href={`/host?week=${week}`} className="underline">Manage your dinner</Link>
+                    </p>
+                  </div>
+                )}
+
+                {/* Match Me CTA — per week, if no signup/hosting and signups open */}
+                {!weekSignup && !weekHosting && weekOpen && (
+                  <div className="card mb-4 bg-gradient-to-r from-[var(--color-primary)]/5 to-[var(--color-primary)]/10 border border-[var(--color-primary)]/20">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-[var(--color-primary)]">Match Me to Any Dinner</h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          We&apos;ll find the perfect dinner for you based on your preferences.
+                        </p>
+                      </div>
+                      <Link href={`/join?week=${week}`} className="btn-primary whitespace-nowrap ml-4">
+                        Sign Me Up
+                      </Link>
                     </div>
+                  </div>
+                )}
 
-                    <div>
-                      <label htmlFor={`notes-${host.id}`} className="label">Notes (optional)</label>
-                      <textarea
-                        id={`notes-${host.id}`}
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        className="input"
-                        rows={2}
-                        placeholder="e.g. Severe nut allergy. Happy to bring a side dish or dessert! Kids are 2 & 5. We'd love to meet other young families."
-                      />
-                    </div>
+                {/* Host cards for this week */}
+                {weekHosts.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {weekHosts.map((host) => {
+                      const remaining = host.seats_available - host.seatsUsed
+                      const isFull = remaining <= 0
+                      const isExpanded = expandedHost === host.id
+                      const canSignUp = weekOpen && !weekSignup && !weekHosting && !isFull
 
-                    {error && <p className="text-red-600 text-sm">{error}</p>}
+                      return (
+                        <div key={host.id} className="card">
+                          <div className="flex items-start justify-between mb-1">
+                            <h3 className="font-semibold text-[var(--color-primary)]">
+                              {host.hostName}&apos;s Dinner
+                            </h3>
+                            <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                              isFull ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                            }`}>
+                              {isFull ? 'Full' : `${remaining} of ${host.seats_available} seats left`}
+                            </span>
+                          </div>
 
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => {
-                          const w = checkWarnings(host)
-                          if (w.length > 0 && warnings.length === 0) {
-                            // First click shows warnings, second click confirms
-                            return
-                          }
-                          handleDirectSignup(host)
-                        }}
-                        disabled={submitting}
-                        className="btn-primary"
-                      >
-                        {submitting ? 'Signing up...' : warnings.length > 0 ? 'Sign Up Anyway' : 'Confirm Signup'}
-                      </button>
-                      <button
-                        onClick={() => { setExpandedHost(null); setWarnings([]) }}
-                        className="btn-secondary"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                          <div className="text-sm text-gray-600 space-y-1 mb-3">
+                            <p>
+                              {kashrutLabel(host.kashrut_level)}
+                              {host.observance_level !== 'flexible' && (
+                                <> &middot; {OBSERVANCE_LEVELS.find((o) => o.value === host.observance_level)?.label}</>
+                              )}
+                            </p>
+                            <p>
+                              {formatStartTime(host.start_time)}
+                              {' · '}{host.kids_friendly ? 'Kids welcome' : 'No kids'}
+                              {' · '}{host.dogs_friendly ? 'Dogs welcome' : 'No dogs'}
+                            </p>
+                            <p className="text-gray-500">{approximateArea(host.address)}</p>
+                          </div>
+
+                          {host.notes && (
+                            <p className="text-sm text-gray-500 italic mb-3">
+                              &ldquo;{host.notes}&rdquo;
+                            </p>
+                          )}
+
+                          {canSignUp && !isExpanded && (
+                            <button
+                              onClick={() => toggleExpand(host.id)}
+                              className="btn-primary w-full text-sm"
+                            >
+                              Sign Up
+                            </button>
+                          )}
+
+                          {/* Expanded signup form */}
+                          {isExpanded && (
+                            <div className="mt-4 pt-4 border-t border-gray-200 space-y-4">
+                              {warnings.length > 0 && (
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                  {warnings.map((w, i) => (
+                                    <p key={i} className="text-sm text-yellow-800">{w}</p>
+                                  ))}
+                                  <p className="text-xs text-yellow-600 mt-1">You can still sign up if you&apos;re okay with this.</p>
+                                </div>
+                              )}
+
+                              <div>
+                                <label htmlFor={`partySize-${host.id}`} className="label">Party size</label>
+                                <input
+                                  id={`partySize-${host.id}`}
+                                  type="number"
+                                  min={1}
+                                  max={remaining}
+                                  value={partySize || ''}
+                                  onChange={(e) => setPartySize(Number(e.target.value))}
+                                  className="input w-24"
+                                  required
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Including yourself ({remaining} seats available)</p>
+                              </div>
+
+                              <div>
+                                <span className="label">Dietary restrictions</span>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                  {DIETARY_OPTIONS.map((item) => (
+                                    <button
+                                      key={item}
+                                      type="button"
+                                      onClick={() => toggleDietary(item)}
+                                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                                        dietary.includes(item)
+                                          ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                                          : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                                      }`}
+                                    >
+                                      {item}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label htmlFor={`kashrut-${host.id}`} className="label">Minimum kashrut level needed</label>
+                                <select
+                                  id={`kashrut-${host.id}`}
+                                  value={kashrut}
+                                  onChange={(e) => setKashrut(e.target.value as KashrutLevel)}
+                                  className="input"
+                                >
+                                  {KASHRUT_LEVELS.map((k) => (
+                                    <option key={k.value} value={k.value}>{k.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label htmlFor={`observance-${host.id}`} className="label">Minimum observance level needed</label>
+                                <select
+                                  id={`observance-${host.id}`}
+                                  value={observance}
+                                  onChange={(e) => setObservance(e.target.value as ShabbatObservance)}
+                                  className="input"
+                                >
+                                  {OBSERVANCE_LEVELS.map((o) => (
+                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                <input
+                                  id={`canWalk-${host.id}`}
+                                  type="checkbox"
+                                  checked={canWalk}
+                                  onChange={(e) => setCanWalk(e.target.checked)}
+                                  className="w-4 h-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+                                />
+                                <label htmlFor={`canWalk-${host.id}`} className="text-sm text-gray-700">
+                                  I don&apos;t drive on Shabbat
+                                </label>
+                              </div>
+
+                              {canWalk && (
+                                <div>
+                                  <label htmlFor={`address-${host.id}`} className="label">Your address (for walking distance)</label>
+                                  <input
+                                    id={`address-${host.id}`}
+                                    type="text"
+                                    value={address}
+                                    onChange={(e) => setAddress(e.target.value)}
+                                    className="input"
+                                    placeholder="123 Main St, San Francisco, CA"
+                                  />
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-3">
+                                <input
+                                  id={`kids-${host.id}`}
+                                  type="checkbox"
+                                  checked={needsKidFriendly}
+                                  onChange={(e) => setNeedsKidFriendly(e.target.checked)}
+                                  className="w-4 h-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+                                />
+                                <label htmlFor={`kids-${host.id}`} className="text-sm text-gray-700">
+                                  I need a kid-friendly dinner
+                                </label>
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                <input
+                                  id={`dogs-${host.id}`}
+                                  type="checkbox"
+                                  checked={needsDogFriendly}
+                                  onChange={(e) => setNeedsDogFriendly(e.target.checked)}
+                                  className="w-4 h-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+                                />
+                                <label htmlFor={`dogs-${host.id}`} className="text-sm text-gray-700">
+                                  I need a dog-friendly dinner
+                                </label>
+                              </div>
+
+                              <div>
+                                <label htmlFor={`notes-${host.id}`} className="label">Notes (optional)</label>
+                                <textarea
+                                  id={`notes-${host.id}`}
+                                  value={notes}
+                                  onChange={(e) => setNotes(e.target.value)}
+                                  className="input"
+                                  rows={2}
+                                  placeholder="e.g. Severe nut allergy. Happy to bring a side dish or dessert! Kids are 2 & 5. We'd love to meet other young families."
+                                />
+                              </div>
+
+                              {error && <p className="text-red-600 text-sm">{error}</p>}
+
+                              <div className="flex gap-3">
+                                <button
+                                  onClick={() => {
+                                    const w = checkWarnings(host)
+                                    if (w.length > 0 && warnings.length === 0) {
+                                      // First click shows warnings, second click confirms
+                                      return
+                                    }
+                                    handleDirectSignup(host)
+                                  }}
+                                  disabled={submitting}
+                                  className="btn-primary"
+                                >
+                                  {submitting ? 'Signing up...' : warnings.length > 0 ? 'Sign Up Anyway' : 'Confirm Signup'}
+                                </button>
+                                <button
+                                  onClick={() => { setExpandedHost(null); setWarnings([]) }}
+                                  className="btn-secondary"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
