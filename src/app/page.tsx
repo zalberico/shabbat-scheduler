@@ -29,12 +29,9 @@ export default function Home() {
               The Noe Valley Chavurah dinner coordination app. Hosts offer seats,
               guests sign up, and we match everyone for a warm Friday night meal.
             </p>
-            <div className="flex gap-4 justify-center">
+            <div className="flex justify-center">
               <Link href="/signup" className="btn-primary text-lg px-8 py-3">
                 Join the Community
-              </Link>
-              <Link href="/login" className="btn-secondary text-lg px-8 py-3">
-                Sign In
               </Link>
             </div>
           </div>
