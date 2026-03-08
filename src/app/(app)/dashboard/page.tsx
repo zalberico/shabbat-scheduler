@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getWeekOf, formatWeekOf, isBeforeDeadline, formatStartTime } from '@/lib/utils'
+import { getWeekOf, getFutureFridays, formatWeekOf, isBeforeDeadline, formatStartTime } from '@/lib/utils'
 import { KASHRUT_LEVELS, OBSERVANCE_LEVELS } from '@/lib/types/database'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
@@ -284,7 +284,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between pt-3 border-t border-gray-100">
             <p className="text-sm text-gray-500">Want to plan ahead?</p>
             <div className="flex gap-2">
-              <Link href="/host" className="text-sm text-[var(--color-primary)] font-medium hover:underline">
+              <Link href={`/host?week=${getFutureFridays(2)[1]}`} className="text-sm text-[var(--color-primary)] font-medium hover:underline">
                 Host a future dinner
               </Link>
               <span className="text-gray-300">|</span>
