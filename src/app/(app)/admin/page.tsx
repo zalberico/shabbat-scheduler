@@ -71,7 +71,7 @@ export default async function AdminPage({ searchParams }: { searchParams: { week
         </div>
         <div className="card text-center">
           <p className="text-2xl font-bold text-[var(--color-primary)]">{totalGuests}</p>
-          <p className="text-sm text-gray-500">Total people</p>
+          <p className="text-sm text-gray-500">Total guests</p>
         </div>
       </div>
 
@@ -98,8 +98,8 @@ export default async function AdminPage({ searchParams }: { searchParams: { week
                 <p className="font-medium">{getUserName(host.user_id)}</p>
                 <p className="text-sm text-gray-600">
                   {host.seats_available} seats &middot; {kashrutLabel(host.kashrut_level)} &middot; {observanceLabel(host.observance_level)} &middot; {formatStartTime(host.start_time)}
-                  {host.kids_friendly && ' · Kids welcome'}
-                  {host.dogs_friendly && ' · Dogs welcome'}
+                  {' · '}{host.kids_friendly ? 'Kids welcome' : 'No kids'}
+                  {' · '}{host.dogs_friendly ? 'Dogs welcome' : 'No dogs'}
                 </p>
               </div>
               <span className={`text-xs px-2 py-1 rounded-full ${
