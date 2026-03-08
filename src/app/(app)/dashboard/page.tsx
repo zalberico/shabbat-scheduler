@@ -36,7 +36,16 @@ export default async function DashboardPage() {
     .single()
 
   // Get match info if matched
-  let matchInfo: { hostName?: string; guests?: { name: string; partySize: number; dietary: string[] }[] } | null = null
+  let matchInfo: {
+    hostName?: string
+    hostStartTime?: string
+    hostKashrut?: string
+    hostObservance?: string
+    hostKidsFriendly?: boolean
+    hostDogsFriendly?: boolean
+    hostNotes?: string | null
+    guests?: { name: string; partySize: number; dietary: string[] }[]
+  } | null = null
 
   if (hostEntry?.status === 'matched') {
     const { data: match } = await supabase
@@ -95,7 +104,7 @@ export default async function DashboardPage() {
         const adminClient = createAdminClient()
         const { data: host } = await adminClient
           .from('weekly_hosts')
-          .select('user_id, start_time, kashrut_level, notes')
+          .select('user_id, start_time, kashrut_level, observance_level, kids_friendly, dogs_friendly, notes')
           .eq('id', match.host_id)
           .single()
 
@@ -106,7 +115,15 @@ export default async function DashboardPage() {
             .eq('id', host.user_id)
             .single()
 
-          matchInfo = { hostName: hostUser?.name }
+          matchInfo = {
+            hostName: hostUser?.name,
+            hostStartTime: host.start_time,
+            hostKashrut: host.kashrut_level,
+            hostObservance: host.observance_level,
+            hostKidsFriendly: host.kids_friendly,
+            hostDogsFriendly: host.dogs_friendly,
+            hostNotes: host.notes,
+          }
         }
       }
     }
@@ -204,9 +221,25 @@ export default async function DashboardPage() {
 
             {matchInfo?.hostName && (
               <div className="mt-3 pt-3 border-t border-amber-200">
-                <p className="text-sm">
-                  You&apos;re having dinner at <strong>{matchInfo.hostName}&apos;s</strong>! Check your email for details.
+                <p className="text-sm font-medium mb-1">
+                  You&apos;re having dinner at <strong>{matchInfo.hostName}&apos;s</strong>!
                 </p>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>
+                    {matchInfo.hostStartTime && formatStartTime(matchInfo.hostStartTime)}
+                    {matchInfo.hostKashrut && ` · ${kashrutLabel(matchInfo.hostKashrut)}`}
+                    {matchInfo.hostObservance && matchInfo.hostObservance !== 'flexible' && (
+                      <> &middot; {OBSERVANCE_LEVELS.find((o) => o.value === matchInfo!.hostObservance)?.label}</>
+                    )}
+                  </p>
+                  <p>
+                    {matchInfo.hostKidsFriendly ? 'Kids welcome' : 'No kids'}
+                    {' · '}{matchInfo.hostDogsFriendly ? 'Dogs welcome' : 'No dogs'}
+                  </p>
+                  {matchInfo.hostNotes && (
+                    <p className="italic">&ldquo;{matchInfo.hostNotes}&rdquo;</p>
+                  )}
+                </div>
               </div>
             )}
           </div>
