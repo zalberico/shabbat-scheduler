@@ -86,44 +86,56 @@ export default async function DashboardPage() {
     }
   }
 
-  if (guestEntry?.status === 'matched') {
-    const { data: matchGuest } = await supabase
-      .from('match_guests')
-      .select('match_id')
-      .eq('guest_id', guestEntry.id)
-      .single()
+  if (guestEntry) {
+    const adminClient = createAdminClient()
 
-    if (matchGuest) {
-      const { data: match } = await supabase
-        .from('matches')
-        .select('host_id')
-        .eq('id', matchGuest.match_id)
+    // Find the host ID — either from direct signup or via match chain
+    let hostId: string | null = null
+
+    if (guestEntry.selected_host_id) {
+      // Direct signup — host ID is right on the guest entry
+      hostId = guestEntry.selected_host_id
+    } else if (guestEntry.status === 'matched') {
+      // Match pool — look up via match_guests → matches
+      const { data: matchGuest } = await adminClient
+        .from('match_guests')
+        .select('match_id')
+        .eq('guest_id', guestEntry.id)
         .single()
 
-      if (match) {
-        const adminClient = createAdminClient()
-        const { data: host } = await adminClient
-          .from('weekly_hosts')
-          .select('user_id, start_time, kashrut_level, observance_level, kids_friendly, dogs_friendly, notes')
-          .eq('id', match.host_id)
+      if (matchGuest) {
+        const { data: match } = await adminClient
+          .from('matches')
+          .select('host_id')
+          .eq('id', matchGuest.match_id)
           .single()
 
-        if (host) {
-          const { data: hostUser } = await supabase
-            .from('users')
-            .select('name')
-            .eq('id', host.user_id)
-            .single()
+        hostId = match?.host_id || null
+      }
+    }
 
-          matchInfo = {
-            hostName: hostUser?.name,
-            hostStartTime: host.start_time,
-            hostKashrut: host.kashrut_level,
-            hostObservance: host.observance_level,
-            hostKidsFriendly: host.kids_friendly,
-            hostDogsFriendly: host.dogs_friendly,
-            hostNotes: host.notes,
-          }
+    if (hostId) {
+      const { data: host } = await adminClient
+        .from('weekly_hosts')
+        .select('user_id, start_time, kashrut_level, observance_level, kids_friendly, dogs_friendly, notes')
+        .eq('id', hostId)
+        .single()
+
+      if (host) {
+        const { data: hostUser } = await adminClient
+          .from('users')
+          .select('name')
+          .eq('id', host.user_id)
+          .single()
+
+        matchInfo = {
+          hostName: hostUser?.name,
+          hostStartTime: host.start_time,
+          hostKashrut: host.kashrut_level,
+          hostObservance: host.observance_level,
+          hostKidsFriendly: host.kids_friendly,
+          hostDogsFriendly: host.dogs_friendly,
+          hostNotes: host.notes,
         }
       }
     }
@@ -202,7 +214,12 @@ export default async function DashboardPage() {
           <div className="bg-amber-50 rounded-lg p-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-lg">🍽️</span>
-              <h3 className="font-medium">You&apos;re joining a dinner!</h3>
+              <h3 className="font-medium">
+                {matchInfo?.hostName
+                  ? <>You&apos;re joining <strong>{matchInfo.hostName.split(' ')[0]}&apos;s</strong> dinner!</>
+                  : <>You&apos;re joining a dinner!</>
+                }
+              </h3>
               <span className={`text-xs px-2 py-0.5 rounded-full ${
                 guestEntry.status === 'matched' ? 'bg-green-100 text-green-800' :
                 guestEntry.status === 'unmatched' ? 'bg-red-100 text-red-800' :
@@ -211,37 +228,33 @@ export default async function DashboardPage() {
                 {guestEntry.status}
               </span>
             </div>
-            <div className="text-sm text-gray-600 space-y-1">
-              <p>Party of {guestEntry.party_size}</p>
+
+            {matchInfo?.hostName && (
+              <div className="text-sm text-gray-600 space-y-1 mb-3">
+                <p>
+                  {matchInfo.hostStartTime && formatStartTime(matchInfo.hostStartTime)}
+                  {matchInfo.hostKashrut && ` · ${kashrutLabel(matchInfo.hostKashrut)}`}
+                  {matchInfo.hostObservance && matchInfo.hostObservance !== 'flexible' && (
+                    <> &middot; {OBSERVANCE_LEVELS.find((o) => o.value === matchInfo!.hostObservance)?.label}</>
+                  )}
+                </p>
+                <p>
+                  {matchInfo.hostKidsFriendly ? 'Kids welcome' : 'No kids'}
+                  {' · '}{matchInfo.hostDogsFriendly ? 'Dogs welcome' : 'No dogs'}
+                </p>
+                {matchInfo.hostNotes && (
+                  <p className="italic">&ldquo;{matchInfo.hostNotes}&rdquo;</p>
+                )}
+              </div>
+            )}
+
+            <div className={`text-sm text-gray-600 space-y-1 ${matchInfo?.hostName ? 'pt-3 border-t border-amber-200' : ''}`}>
+              <p>Your signup: party of {guestEntry.party_size}</p>
               {guestEntry.dietary_restrictions.length > 0 && (
                 <p>Dietary: {guestEntry.dietary_restrictions.join(', ')}</p>
               )}
               {guestEntry.can_walk && <p>Can walk</p>}
             </div>
-
-            {matchInfo?.hostName && (
-              <div className="mt-3 pt-3 border-t border-amber-200">
-                <p className="text-sm font-medium mb-1">
-                  You&apos;re having dinner at <strong>{matchInfo.hostName}&apos;s</strong>!
-                </p>
-                <div className="text-sm text-gray-600 space-y-1">
-                  <p>
-                    {matchInfo.hostStartTime && formatStartTime(matchInfo.hostStartTime)}
-                    {matchInfo.hostKashrut && ` · ${kashrutLabel(matchInfo.hostKashrut)}`}
-                    {matchInfo.hostObservance && matchInfo.hostObservance !== 'flexible' && (
-                      <> &middot; {OBSERVANCE_LEVELS.find((o) => o.value === matchInfo!.hostObservance)?.label}</>
-                    )}
-                  </p>
-                  <p>
-                    {matchInfo.hostKidsFriendly ? 'Kids welcome' : 'No kids'}
-                    {' · '}{matchInfo.hostDogsFriendly ? 'Dogs welcome' : 'No dogs'}
-                  </p>
-                  {matchInfo.hostNotes && (
-                    <p className="italic">&ldquo;{matchInfo.hostNotes}&rdquo;</p>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
