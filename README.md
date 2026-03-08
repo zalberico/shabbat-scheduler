@@ -6,9 +6,9 @@ A web app for the Noe Valley Chavurah to coordinate weekly Shabbat dinners. Memb
 
 ## How It Works
 
-1. **Sunday-Wednesday**: Hosts offer seats (with kashrut level, start time, preferences). Guests sign up (party size, dietary needs, requirements).
-2. **Wednesday 11:59 PM PT**: Signup deadline
-3. **Thursday 8 AM PT**: Automated matching runs — a group email goes out to each match (host + guests together) with dinner details
+1. **Sunday-Wednesday**: Hosts offer seats (with kashrut level, start time, preferences). Guests sign up (party size, dietary needs, requirements). Hosts can list dinners up to 6 weeks in advance; guests can browse and directly sign up for any upcoming dinner.
+2. **Wednesday 11:59 PM PT**: Signup deadline (per-week — each Friday has its own Wednesday cutoff)
+3. **Thursday 8 AM PT**: Automated matching runs for this Friday — a group email goes out to each match (host + guests together) with dinner details
 4. **Friday**: Shabbat shalom!
 
 ## Tech Stack
@@ -27,8 +27,9 @@ src/
 │   ├── (auth)/           # Login, signup pages
 │   ├── (app)/            # Authenticated pages
 │   │   ├── dashboard/    # Weekly status overview
-│   │   ├── host/         # Host signup form
-│   │   ├── join/         # Guest signup form
+│   │   ├── host/         # Host signup form (supports future weeks)
+│   │   ├── browse/       # Browse & direct signup for dinners (all upcoming weeks)
+│   │   ├── join/         # Guest signup form (match pool, this week only)
 │   │   ├── profile/      # User preferences
 │   │   ├── history/      # Past dinners
 │   │   └── admin/        # Admin dashboard, matching, members, allowlist
@@ -45,13 +46,14 @@ src/
 │   ├── terms/            # Terms & conditions
 │   └── auth/             # Supabase auth callbacks
 ├── components/
-│   └── nav.tsx           # Responsive navigation
+│   ├── nav.tsx           # Responsive navigation
+│   └── week-picker.tsx   # Reusable week selector (host, admin pages)
 ├── lib/
 │   ├── supabase/         # Client, server, admin, middleware
 │   ├── email/            # React Email templates
 │   ├── types/            # Database types + constants
 │   ├── auth.ts           # requireAuth/requireAdmin helpers
-│   └── utils.ts          # Date helpers, formatting
+│   └── utils.ts          # Date helpers, formatting, multi-week utilities
 └── middleware.ts          # Auth session management
 ```
 
