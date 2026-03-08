@@ -23,12 +23,31 @@ export async function GET() {
   }
 
   const supabase = createAdminClient()
-  const { data } = await supabase
+  const { data: phones } = await supabase
     .from('phone_allowlist')
     .select('*')
     .order('uploaded_at', { ascending: false })
 
-  return NextResponse.json(data || [])
+  // Fetch all users to build phone→user map
+  const { data: users } = await supabase
+    .from('users')
+    .select('name, email, phone, is_banned')
+
+  const phoneToUser = new Map<string, { name: string; email: string; is_banned: boolean }>()
+  if (users) {
+    for (const u of users) {
+      if (u.phone) {
+        phoneToUser.set(u.phone, { name: u.name, email: u.email, is_banned: u.is_banned })
+      }
+    }
+  }
+
+  const enriched = (phones || []).map((p) => ({
+    ...p,
+    user: phoneToUser.get(p.phone) || null,
+  }))
+
+  return NextResponse.json(enriched)
 }
 
 const PHONE_REGEX = /^\+?[1-9]\d{1,14}$/

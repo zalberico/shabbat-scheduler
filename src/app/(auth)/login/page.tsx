@@ -1,14 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [banned, setBanned] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('error') === 'banned') {
+      setBanned(true)
+    }
+  }, [searchParams])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -50,6 +59,11 @@ export default function LoginPage() {
 
   return (
     <div className="card">
+      {banned && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-red-800">
+          Your account has been suspended. Contact an admin if you believe this is an error.
+        </div>
+      )}
       <h2 className="text-xl font-semibold text-[var(--color-primary)] mb-6">Sign in</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -81,5 +95,13 @@ export default function LoginPage() {
         </Link>
       </p>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }

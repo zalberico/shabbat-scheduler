@@ -60,6 +60,8 @@ export interface Database {
           default_kashrut_preference: KashrutLevel
           default_shabbat_observance: ShabbatObservance
           is_admin: boolean
+          is_banned: boolean
+          banned_at: string | null
           created_at: string
           updated_at: string
         }
@@ -72,6 +74,8 @@ export interface Database {
           default_kashrut_preference?: KashrutLevel
           default_shabbat_observance?: ShabbatObservance
           is_admin?: boolean
+          is_banned?: boolean
+          banned_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -84,6 +88,8 @@ export interface Database {
           default_kashrut_preference?: KashrutLevel
           default_shabbat_observance?: ShabbatObservance
           is_admin?: boolean
+          is_banned?: boolean
+          banned_at?: string | null
           updated_at?: string
         }
       }

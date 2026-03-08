@@ -12,6 +12,19 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error && data.user) {
+      // Check if user is banned
+      const adminClient = createAdminClient()
+      const { data: banCheck } = await adminClient
+        .from('users')
+        .select('is_banned')
+        .eq('id', data.user.id)
+        .single()
+
+      if (banCheck?.is_banned) {
+        await supabase.auth.signOut()
+        return NextResponse.redirect(`${origin}/login?error=banned`)
+      }
+
       // Check if user profile exists, create if not
       const { data: profile } = await supabase
         .from('users')
@@ -28,7 +41,6 @@ export async function GET(request: Request) {
         if (!phone) {
           return NextResponse.redirect(`${origin}/login?error=auth`)
         }
-        const adminClient = createAdminClient()
         const { data: allowed } = await adminClient
           .from('phone_allowlist')
           .select('id')

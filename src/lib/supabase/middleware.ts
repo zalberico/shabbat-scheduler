@@ -1,4 +1,5 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
@@ -40,6 +41,27 @@ export async function updateSession(request: NextRequest) {
   const isPublicPath = publicPaths.some(
     (path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith('/auth/')
   ) || request.nextUrl.pathname.startsWith('/api/')
+
+  // Check if authenticated user is banned (uses service role to avoid RLS/cookie issues)
+  if (user && !isPublicPath) {
+    const admin = createAdminSupabase(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    const { data: profile } = await admin
+      .from('users')
+      .select('is_banned')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.is_banned) {
+      await supabase.auth.signOut()
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('error', 'banned')
+      return NextResponse.redirect(url)
+    }
+  }
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone()
