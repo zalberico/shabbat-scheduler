@@ -25,7 +25,7 @@ export default async function AdminPage({ searchParams }: { searchParams: { week
   // Get this week's guests
   const { data: guests } = await adminClient
     .from('weekly_guests')
-    .select('id, user_id, party_size, dietary_restrictions, can_walk, status, created_at')
+    .select('id, user_id, party_size, dietary_restrictions, kashrut_requirement, observance_requirement, can_walk, needs_kid_friendly, needs_dog_friendly, notes, status, created_at')
     .eq('week_of', weekOf)
     .order('created_at')
 
@@ -125,9 +125,14 @@ export default async function AdminPage({ searchParams }: { searchParams: { week
               <div className="flex-1">
                 <p className="font-medium">{getUserName(guest.user_id)}</p>
                 <p className="text-sm text-gray-600">
-                  Party of {guest.party_size}
+                  Party of {guest.party_size} &middot; {kashrutLabel(guest.kashrut_requirement)} &middot; {observanceLabel(guest.observance_requirement)}
                   {guest.dietary_restrictions.length > 0 && ` · ${guest.dietary_restrictions.join(', ')}`}
-                  {guest.can_walk && ' · Can walk'}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {guest.can_walk ? 'Can walk' : 'Can drive'}
+                  {' · '}{guest.needs_kid_friendly ? 'Needs kid-friendly' : 'No kid req'}
+                  {' · '}{guest.needs_dog_friendly ? 'Needs dog-friendly' : 'No dog req'}
+                  {guest.notes && ` · "${guest.notes}"`}
                 </p>
               </div>
               <span className={`text-xs px-2 py-1 rounded-full ${
