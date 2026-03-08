@@ -38,7 +38,11 @@ src/
 │   │   ├── send-reminders/      # Weekly reminder emails
 │   │   ├── cron/         # Vercel cron endpoints
 │   │   ├── admin/        # Admin API routes
-│   │   └── check-allowlist/     # Phone verification
+│   │   ├── check-allowlist/     # Phone allowlist lookup
+│   │   ├── verify-phone/       # SMS verification (send/check)
+│   │   └── geocode/            # Address geocoding
+│   ├── privacy/          # Privacy policy
+│   ├── terms/            # Terms & conditions
 │   └── auth/             # Supabase auth callbacks
 ├── components/
 │   └── nav.tsx           # Responsive navigation
@@ -99,6 +103,10 @@ npm run dev
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-only) |
 | `RESEND_API_KEY` | Resend API key for sending emails |
 | `CRON_SECRET` | Secret for authenticating cron job requests |
+| `TWILIO_ACCOUNT_SID` | Twilio account SID for SMS verification |
+| `TWILIO_AUTH_TOKEN` | Twilio auth token |
+| `TWILIO_VERIFY_SERVICE_SID` | Twilio Verify service SID |
+| `SKIP_SMS_VERIFICATION` | Set to `true` to bypass SMS verification (e.g., while awaiting 10DLC approval) |
 | `NEXT_PUBLIC_APP_URL` | App URL (e.g., `http://localhost:3000`) |
 
 ## Cron Jobs
@@ -112,7 +120,7 @@ Configured in `vercel.json`:
 
 ## Access Control
 
-- **Signup**: Requires phone number on the community allowlist (managed by admins)
+- **Signup**: Requires phone number on the community allowlist (managed by admins), verified via Twilio SMS (can be bypassed with `SKIP_SMS_VERIFICATION=true`)
 - **Auth**: Supabase magic link emails (passwordless)
 - **RLS**: Row Level Security on all tables — users see only their own data, admins see everything
 - **Admin**: `is_admin` flag on user profile, checked server-side via `requireAdmin()`
