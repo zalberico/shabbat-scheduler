@@ -2,6 +2,7 @@ export type KashrutLevel = 'none' | 'kosher_style' | 'strict_kosher' | 'glatt_ko
 export type ShabbatObservance = 'flexible' | 'traditional' | 'shomer_shabbat'
 export type HostStatus = 'open' | 'matched' | 'cancelled'
 export type GuestStatus = 'pending' | 'matched' | 'unmatched'
+export type SignupType = 'match_pool' | 'direct'
 
 export const KASHRUT_LEVELS: { value: KashrutLevel; label: string }[] = [
   { value: 'none', label: 'No kashrut requirements' },
@@ -177,6 +178,8 @@ export interface Database {
           needs_kid_friendly: boolean
           needs_dog_friendly: boolean
           status: GuestStatus
+          signup_type: SignupType
+          selected_host_id: string | null
           created_at: string
         }
         Insert: {
@@ -195,6 +198,8 @@ export interface Database {
           needs_kid_friendly?: boolean
           needs_dog_friendly?: boolean
           status?: GuestStatus
+          signup_type?: SignupType
+          selected_host_id?: string | null
           created_at?: string
         }
         Update: {
@@ -210,6 +215,8 @@ export interface Database {
           needs_kid_friendly?: boolean
           needs_dog_friendly?: boolean
           status?: GuestStatus
+          signup_type?: SignupType
+          selected_host_id?: string | null
         }
       }
       matches: {

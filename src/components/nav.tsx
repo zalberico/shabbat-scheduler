@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 const navLinks = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/host', label: 'Host' },
-  { href: '/join', label: 'Join' },
+  { href: '/browse', label: 'Browse' },
   { href: '/history', label: 'History' },
   { href: '/profile', label: 'Profile' },
 ]

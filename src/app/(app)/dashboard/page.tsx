@@ -225,7 +225,7 @@ export default async function DashboardPage() {
                 <Link href="/host" className="btn-primary">
                   Host a dinner
                 </Link>
-                <Link href="/join" className="btn-secondary">
+                <Link href="/browse" className="btn-secondary">
                   Join as a guest
                 </Link>
               </div>

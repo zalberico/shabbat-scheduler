@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getWeekOf, formatWeekOf, isBeforeDeadline } from '@/lib/utils'
 import { KASHRUT_LEVELS, OBSERVANCE_LEVELS, DIETARY_OPTIONS } from '@/lib/types/database'
@@ -182,6 +183,15 @@ export default function JoinPage() {
         For Friday, {formatWeekOf(weekOf)}
       </p>
 
+      <div className="card mb-6 bg-[var(--color-primary)]/5 border border-[var(--color-primary)]/20">
+        <p className="text-sm text-gray-700">
+          Want to pick your dinner?{' '}
+          <Link href="/browse" className="text-[var(--color-primary)] font-medium underline">
+            Browse available hosts
+          </Link>
+        </p>
+      </div>
+
       <form onSubmit={handleSubmit} className="card space-y-5">
         <div>
           <label htmlFor="partySize" className="label">Party size</label>
@@ -189,7 +199,6 @@ export default function JoinPage() {
             id="partySize"
             type="number"
             min={1}
-            max={10}
             value={partySize}
             onChange={(e) => setPartySize(Number(e.target.value))}
             className="input w-24"
@@ -316,7 +325,7 @@ export default function JoinPage() {
             onChange={(e) => setNotes(e.target.value)}
             className="input"
             rows={3}
-            placeholder="Anything else the host should know..."
+            placeholder="e.g. Severe nut allergy. Happy to bring a side dish or dessert! Kids are 2 & 5. We'd love to meet other young families."
           />
         </div>
 

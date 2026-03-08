@@ -131,11 +131,7 @@ export default function HostPage() {
 
   async function handleCancel() {
     if (!existing) return
-    const supabase = createClient()
-    await supabase
-      .from('weekly_hosts')
-      .update({ status: 'cancelled' })
-      .eq('id', existing)
+    await fetch('/api/cancel-hosting', { method: 'POST' })
     router.push('/dashboard')
   }
 
@@ -180,7 +176,6 @@ export default function HostPage() {
             id="seats"
             type="number"
             min={1}
-            max={20}
             value={seats}
             onChange={(e) => setSeats(Number(e.target.value))}
             className="input w-24"
@@ -288,7 +283,7 @@ export default function HostPage() {
             onChange={(e) => setNotes(e.target.value)}
             className="input"
             rows={3}
-            placeholder="Any additional info for your guests..."
+            placeholder="e.g. Potluck style — bring a dish to share! No phones at the table. We have kids ages 3 & 6. Vegetarian meal. Doors open 30 min before candle lighting."
           />
         </div>
 

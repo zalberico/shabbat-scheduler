@@ -1,0 +1,220 @@
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { NextResponse } from 'next/server'
+import { getWeekOf, isBeforeDeadline } from '@/lib/utils'
+
+export async function POST(request: Request) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (!isBeforeDeadline()) {
+    return NextResponse.json({ error: 'Signups are closed for this week' }, { status: 400 })
+  }
+
+  const body = await request.json().catch(() => null)
+  if (!body?.host_id || !body?.party_size) {
+    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+
+  const weekOf = getWeekOf()
+  const adminClient = createAdminClient()
+
+  // Check user doesn't already have a guest entry this week
+  const { data: existingGuest } = await adminClient
+    .from('weekly_guests')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('week_of', weekOf)
+    .single()
+
+  if (existingGuest) {
+    return NextResponse.json({ error: 'You already have a signup for this week' }, { status: 409 })
+  }
+
+  // Verify host exists and is available
+  const { data: host } = await adminClient
+    .from('weekly_hosts')
+    .select('id, user_id, seats_available, status, week_of')
+    .eq('id', body.host_id)
+    .single()
+
+  if (!host || host.week_of !== weekOf) {
+    return NextResponse.json({ error: 'Host not found for this week' }, { status: 404 })
+  }
+
+  if (host.status === 'cancelled') {
+    return NextResponse.json({ error: 'This dinner has been cancelled' }, { status: 400 })
+  }
+
+  if (host.user_id === user.id) {
+    return NextResponse.json({ error: 'You cannot sign up for your own dinner' }, { status: 400 })
+  }
+
+  // Calculate remaining seats
+  const { data: directSignups } = await adminClient
+    .from('weekly_guests')
+    .select('party_size')
+    .eq('selected_host_id', host.id)
+    .eq('signup_type', 'direct')
+
+  const usedSeats = directSignups?.reduce((sum, g) => sum + g.party_size, 0) || 0
+  const remaining = host.seats_available - usedSeats
+
+  if (body.party_size > remaining) {
+    return NextResponse.json({
+      error: `Not enough seats. ${remaining} remaining.`,
+    }, { status: 409 })
+  }
+
+  // Geocode address if provided
+  let lat: number | null = null
+  let lng: number | null = null
+  if (body.can_walk && body.address?.trim()) {
+    try {
+      const geoRes = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/geocode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: body.address.trim() }),
+      })
+      if (geoRes.ok) {
+        const geoData = await geoRes.json()
+        lat = geoData.lat
+        lng = geoData.lng
+      }
+    } catch {
+      // Continue without geocoding
+    }
+  }
+
+  // Insert guest entry
+  const { data: guestEntry, error: guestError } = await adminClient
+    .from('weekly_guests')
+    .insert({
+      user_id: user.id,
+      week_of: weekOf,
+      party_size: body.party_size,
+      dietary_restrictions: body.dietary_restrictions || [],
+      kashrut_requirement: body.kashrut_requirement || 'none',
+      observance_requirement: body.observance_requirement || 'flexible',
+      can_walk: body.can_walk || false,
+      address: body.can_walk && body.address?.trim() ? body.address.trim() : null,
+      lat: body.can_walk ? lat : null,
+      lng: body.can_walk ? lng : null,
+      needs_kid_friendly: body.needs_kid_friendly || false,
+      needs_dog_friendly: body.needs_dog_friendly || false,
+      notes: body.notes || null,
+      signup_type: 'direct',
+      selected_host_id: host.id,
+      status: 'matched',
+    })
+    .select('id')
+    .single()
+
+  if (guestError || !guestEntry) {
+    return NextResponse.json({ error: guestError?.message || 'Failed to create signup' }, { status: 500 })
+  }
+
+  // Upsert match row for this host
+  let matchId: string
+  const { data: existingMatch } = await adminClient
+    .from('matches')
+    .select('id')
+    .eq('host_id', host.id)
+    .eq('week_of', weekOf)
+    .single()
+
+  if (existingMatch) {
+    matchId = existingMatch.id
+  } else {
+    const { data: newMatch, error: matchError } = await adminClient
+      .from('matches')
+      .insert({ week_of: weekOf, host_id: host.id })
+      .select('id')
+      .single()
+
+    if (matchError || !newMatch) {
+      return NextResponse.json({ error: 'Failed to create match' }, { status: 500 })
+    }
+    matchId = newMatch.id
+
+    // Update host status to matched
+    await adminClient
+      .from('weekly_hosts')
+      .update({ status: 'matched' })
+      .eq('id', host.id)
+  }
+
+  // Link guest to match
+  await adminClient.from('match_guests').insert({
+    match_id: matchId,
+    guest_id: guestEntry.id,
+  })
+
+  return NextResponse.json({ success: true })
+}
+
+export async function DELETE() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const weekOf = getWeekOf()
+  const adminClient = createAdminClient()
+
+  // Find user's direct signup for this week
+  const { data: guestEntry } = await adminClient
+    .from('weekly_guests')
+    .select('id, selected_host_id')
+    .eq('user_id', user.id)
+    .eq('week_of', weekOf)
+    .eq('signup_type', 'direct')
+    .single()
+
+  if (!guestEntry) {
+    return NextResponse.json({ error: 'No direct signup found' }, { status: 404 })
+  }
+
+  // Delete match_guests entry
+  await adminClient
+    .from('match_guests')
+    .delete()
+    .eq('guest_id', guestEntry.id)
+
+  // Delete the guest entry
+  await adminClient
+    .from('weekly_guests')
+    .delete()
+    .eq('id', guestEntry.id)
+
+  // Check if match now has 0 guests
+  if (guestEntry.selected_host_id) {
+    const { data: match } = await adminClient
+      .from('matches')
+      .select('id')
+      .eq('host_id', guestEntry.selected_host_id)
+      .eq('week_of', weekOf)
+      .single()
+
+    if (match) {
+      const { count } = await adminClient
+        .from('match_guests')
+        .select('*', { count: 'exact', head: true })
+        .eq('match_id', match.id)
+
+      if (count === 0) {
+        await adminClient.from('matches').delete().eq('id', match.id)
+        await adminClient
+          .from('weekly_hosts')
+          .update({ status: 'open' })
+          .eq('id', guestEntry.selected_host_id)
+      }
+    }
+  }
+
+  return NextResponse.json({ success: true })
+}
