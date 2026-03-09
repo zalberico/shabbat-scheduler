@@ -27,6 +27,7 @@ export default function JoinPage() {
   const [needsKidFriendly, setNeedsKidFriendly] = useState(false)
   const [needsDogFriendly, setNeedsDogFriendly] = useState(false)
   const [notes, setNotes] = useState('')
+  const [isHosting, setIsHosting] = useState(false)
 
   // Store defaults so we can reset when changing weeks
   const [defaults, setDefaults] = useState<{
@@ -61,6 +62,17 @@ export default function JoinPage() {
           setObservance(d.observance)
         }
       }
+
+      // Check if hosting this week
+      const { data: hostEntry } = await supabase
+        .from('weekly_hosts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('week_of', weekOf)
+        .neq('status', 'cancelled')
+        .single()
+
+      setIsHosting(!!hostEntry)
 
       const { data: guest } = await supabase
         .from('weekly_guests')
@@ -208,6 +220,31 @@ export default function JoinPage() {
         <h1 className="page-title">Join a Dinner</h1>
         <div className="card text-center py-8">
           <p className="text-gray-500">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Hosting conflict — block join if no existing guest entry
+  if (isHosting && !existing) {
+    return (
+      <div>
+        <h1 className="page-title">Join a Dinner</h1>
+        <div className="mb-6">
+          <WeekPicker selected={weekOf} onChange={handleWeekChange} />
+        </div>
+        <div className="card bg-amber-50 border border-amber-200">
+          <p className="text-sm font-medium text-amber-800">
+            You&apos;re already hosting a dinner this week!
+          </p>
+          <p className="text-sm text-amber-700 mt-2">
+            Since Shabbat dinner is Friday night, you can only attend one dinner.
+          </p>
+          <div className="flex flex-wrap gap-3 mt-4">
+            <Link href={`/host?week=${weekOf}`} className="btn-primary text-sm">
+              Manage your dinner
+            </Link>
+          </div>
         </div>
       </div>
     )
