@@ -310,58 +310,255 @@ export default async function DashboardPage() {
 async function UpcomingDinners({ userId, currentWeek }: { userId: string; currentWeek: string }) {
   const adminClient = createAdminClient()
 
-  const { data: futureHosts } = await adminClient
-    .from('weekly_hosts')
-    .select('week_of, seats_available, status')
-    .eq('user_id', userId)
-    .gt('week_of', currentWeek)
-    .neq('status', 'cancelled')
-    .order('week_of')
+  const kashrutLabel = (level: string) =>
+    KASHRUT_LEVELS.find((k) => k.value === level)?.label || level
 
-  const { data: futureGuests } = await adminClient
-    .from('weekly_guests')
-    .select('week_of, status')
-    .eq('user_id', userId)
-    .gt('week_of', currentWeek)
-    .neq('status', 'unmatched')
-    .order('week_of')
+  // Round 1: Fetch full host and guest entries
+  const [{ data: futureHosts }, { data: futureGuests }] = await Promise.all([
+    adminClient
+      .from('weekly_hosts')
+      .select('*')
+      .eq('user_id', userId)
+      .gt('week_of', currentWeek)
+      .neq('status', 'cancelled')
+      .order('week_of'),
+    adminClient
+      .from('weekly_guests')
+      .select('*')
+      .eq('user_id', userId)
+      .gt('week_of', currentWeek)
+      .neq('status', 'unmatched')
+      .order('week_of'),
+  ])
 
-  const entries = [
-    ...(futureHosts || []).map((h) => ({
-      weekOf: h.week_of,
-      role: 'Hosting' as const,
-      detail: `${h.seats_available} seats`,
-      link: `/host?week=${h.week_of}`,
-    })),
-    ...(futureGuests || []).map((g) => ({
-      weekOf: g.week_of,
-      role: 'Guest' as const,
-      detail: g.status,
-      link: `/browse?week=${g.week_of}`,
-    })),
+  if (!futureHosts?.length && !futureGuests?.length) return null
+
+  // Round 2: Fetch matches for hosts + match_guests for guest entries
+  const hostIds = (futureHosts || []).map((h) => h.id)
+  const guestEntryIds = (futureGuests || []).map((g) => g.id)
+
+  const [{ data: matchesForHosts }, { data: matchGuestsForGuests }] = await Promise.all([
+    hostIds.length
+      ? adminClient.from('matches').select('id, host_id').in('host_id', hostIds)
+      : { data: [] as { id: string; host_id: string }[] },
+    guestEntryIds.length
+      ? adminClient.from('match_guests').select('guest_id, match_id').in('guest_id', guestEntryIds)
+      : { data: [] as { guest_id: string; match_id: string }[] },
+  ])
+
+  // Round 3: Fetch guest lists for matched hosts + resolve host IDs for guest entries
+  const hostMatchIds = (matchesForHosts || []).map((m) => m.id)
+  const guestMatchIds = (matchGuestsForGuests || []).map((mg) => mg.match_id)
+
+  const [{ data: hostSideMatchGuests }, { data: guestSideMatches }] = await Promise.all([
+    hostMatchIds.length
+      ? adminClient.from('match_guests').select('match_id, guest_id').in('match_id', hostMatchIds)
+      : { data: [] as { match_id: string; guest_id: string }[] },
+    guestMatchIds.length
+      ? adminClient.from('matches').select('id, host_id').in('id', guestMatchIds)
+      : { data: [] as { id: string; host_id: string }[] },
+  ])
+
+  // Round 4: Fetch guest details (for host cards) + host details (for guest cards) + user names
+  const matchedGuestIds = (hostSideMatchGuests || []).map((mg) => mg.guest_id)
+
+  const directHostIds = (futureGuests || [])
+    .filter((g) => g.selected_host_id)
+    .map((g) => g.selected_host_id!)
+  const matchResolvedHostIds = (matchGuestsForGuests || [])
+    .map((mg) => {
+      const match = (guestSideMatches || []).find((m) => m.id === mg.match_id)
+      return match?.host_id
+    })
+    .filter(Boolean) as string[]
+  const allHostIdsForGuests = Array.from(new Set([...directHostIds, ...matchResolvedHostIds]))
+
+  const [{ data: guestDetails }, { data: hostDetailsForGuests }] = await Promise.all([
+    matchedGuestIds.length
+      ? adminClient.from('weekly_guests').select('id, user_id, party_size, dietary_restrictions').in('id', matchedGuestIds)
+      : { data: [] as { id: string; user_id: string; party_size: number; dietary_restrictions: string[] }[] },
+    allHostIdsForGuests.length
+      ? adminClient.from('weekly_hosts').select('id, user_id, start_time, kashrut_level, observance_level, kids_friendly, dogs_friendly, notes').in('id', allHostIdsForGuests)
+      : { data: [] as { id: string; user_id: string; start_time: string; kashrut_level: string; observance_level: string; kids_friendly: boolean; dogs_friendly: boolean; notes: string | null }[] },
+  ])
+
+  // Fetch all user names
+  const guestUserIds = (guestDetails || []).map((g) => g.user_id)
+  const hostUserIds = (hostDetailsForGuests || []).map((h) => h.user_id)
+  const allUserIds = Array.from(new Set([...guestUserIds, ...hostUserIds]))
+
+  const { data: allUsers } = allUserIds.length
+    ? await adminClient.from('users').select('id, name').in('id', allUserIds)
+    : { data: [] as { id: string; name: string }[] }
+
+  // Build lookup maps
+  const getUserName = (uid: string) =>
+    (allUsers || []).find((u) => u.id === uid)?.name || 'Unknown'
+
+  // matchByHostId: host entry ID -> list of guest info
+  const matchByHostId = new Map<string, { name: string; partySize: number; dietary: string[] }[]>()
+  ;(matchesForHosts || []).forEach((m) => {
+    const gIds = (hostSideMatchGuests || [])
+      .filter((mg) => mg.match_id === m.id)
+      .map((mg) => mg.guest_id)
+    const guests = gIds
+      .map((gId) => {
+        const detail = (guestDetails || []).find((g) => g.id === gId)
+        if (!detail) return null
+        return {
+          name: getUserName(detail.user_id),
+          partySize: detail.party_size,
+          dietary: detail.dietary_restrictions,
+        }
+      })
+      .filter(Boolean) as { name: string; partySize: number; dietary: string[] }[]
+    matchByHostId.set(m.host_id, guests)
+  })
+
+  // hostInfoForGuestEntry: guest entry ID -> host info
+  const hostInfoForGuestEntry = new Map<string, {
+    hostName: string; startTime: string; kashrut: string; observance: string;
+    kidsFriendly: boolean; dogsFriendly: boolean; notes: string | null
+  }>()
+  ;(futureGuests || []).forEach((g) => {
+    let hostId: string | null = null
+    if (g.selected_host_id) {
+      hostId = g.selected_host_id
+    } else {
+      const mg = (matchGuestsForGuests || []).find((mg) => mg.guest_id === g.id)
+      if (mg) {
+        const match = (guestSideMatches || []).find((m) => m.id === mg.match_id)
+        hostId = match?.host_id || null
+      }
+    }
+    if (hostId) {
+      const host = (hostDetailsForGuests || []).find((h) => h.id === hostId)
+      if (host) {
+        hostInfoForGuestEntry.set(g.id, {
+          hostName: getUserName(host.user_id),
+          startTime: host.start_time,
+          kashrut: host.kashrut_level,
+          observance: host.observance_level,
+          kidsFriendly: host.kids_friendly,
+          dogsFriendly: host.dogs_friendly,
+          notes: host.notes,
+        })
+      }
+    }
+  })
+
+  // Build sorted entries
+  type HostEntry = { type: 'host'; weekOf: string; host: NonNullable<typeof futureHosts>[number] }
+  type GuestEntry = { type: 'guest'; weekOf: string; guest: NonNullable<typeof futureGuests>[number] }
+  const entries: (HostEntry | GuestEntry)[] = [
+    ...(futureHosts || []).map((h) => ({ type: 'host' as const, weekOf: h.week_of, host: h })),
+    ...(futureGuests || []).map((g) => ({ type: 'guest' as const, weekOf: g.week_of, guest: g })),
   ].sort((a, b) => a.weekOf.localeCompare(b.weekOf))
-
-  if (entries.length === 0) return null
 
   return (
     <div className="card mb-6">
       <h2 className="text-lg font-semibold text-[var(--color-primary)] mb-3">Upcoming Dinners</h2>
-      <div className="space-y-2">
-        {entries.map((entry) => (
-          <Link
-            key={`${entry.weekOf}-${entry.role}`}
-            href={entry.link}
-            className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-          >
-            <div>
-              <p className="font-medium text-sm">Friday, {formatWeekOf(entry.weekOf)}</p>
-              <p className="text-xs text-gray-500">
-                {entry.role === 'Hosting' ? `🏠 Hosting (${entry.detail})` : `🍽️ ${entry.role}`}
-              </p>
-            </div>
-            <span className="text-xs text-gray-400">&rarr;</span>
-          </Link>
-        ))}
+      <div className="space-y-4">
+        {entries.map((entry) => {
+          if (entry.type === 'host') {
+            const h = entry.host
+            const guests = matchByHostId.get(h.id)
+            return (
+              <Link key={`${h.week_of}-host`} href={`/host?week=${h.week_of}`} className="block">
+                <div className="bg-blue-50 rounded-lg p-4 hover:bg-blue-100 transition-colors">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">🏠</span>
+                    <h3 className="font-medium">Hosting &mdash; Friday, {formatWeekOf(h.week_of)}</h3>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      h.status === 'matched' ? 'bg-green-100 text-green-800' :
+                      h.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {h.status}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p>
+                      {h.seats_available} seats &middot; {kashrutLabel(h.kashrut_level)} &middot; {formatStartTime(h.start_time)}
+                      {h.kids_friendly && ' · Kids welcome'}
+                      {h.dogs_friendly && ' · Dogs welcome'}
+                    </p>
+                    {h.observance_level && h.observance_level !== 'flexible' && (
+                      <p>Observance: {OBSERVANCE_LEVELS.find((o) => o.value === h.observance_level)?.label || h.observance_level}</p>
+                    )}
+                    {h.notes && <p>Notes: {h.notes}</p>}
+                  </div>
+
+                  {guests && guests.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-blue-200">
+                      <h4 className="text-sm font-medium mb-2">Your guests:</h4>
+                      <ul className="space-y-1 text-sm">
+                        {guests.map((g, i) => (
+                          <li key={i}>
+                            {g.name} (party of {g.partySize})
+                            {g.dietary.length > 0 && ` — ${g.dietary.join(', ')}`}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </Link>
+            )
+          } else {
+            const g = entry.guest
+            const hostInfo = hostInfoForGuestEntry.get(g.id)
+            return (
+              <Link key={`${g.week_of}-guest`} href={`/browse?week=${g.week_of}`} className="block">
+                <div className="bg-amber-50 rounded-lg p-4 hover:bg-amber-100 transition-colors">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">🍽️</span>
+                    <h3 className="font-medium">
+                      {hostInfo
+                        ? <>Joining <strong>{hostInfo.hostName.split(' ')[0]}&apos;s</strong> dinner &mdash; Friday, {formatWeekOf(g.week_of)}</>
+                        : <>Joining a dinner &mdash; Friday, {formatWeekOf(g.week_of)}</>
+                      }
+                    </h3>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      g.status === 'matched' ? 'bg-green-100 text-green-800' :
+                      g.status === 'unmatched' ? 'bg-red-100 text-red-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {g.status}
+                    </span>
+                  </div>
+
+                  {hostInfo && (
+                    <div className="text-sm text-gray-600 space-y-1 mb-3">
+                      <p>
+                        {formatStartTime(hostInfo.startTime)}
+                        {` · ${kashrutLabel(hostInfo.kashrut)}`}
+                        {hostInfo.observance && hostInfo.observance !== 'flexible' && (
+                          <> &middot; {OBSERVANCE_LEVELS.find((o) => o.value === hostInfo.observance)?.label}</>
+                        )}
+                      </p>
+                      <p>
+                        {hostInfo.kidsFriendly ? 'Kids welcome' : 'No kids'}
+                        {' · '}{hostInfo.dogsFriendly ? 'Dogs welcome' : 'No dogs'}
+                      </p>
+                      {hostInfo.notes && (
+                        <p className="italic">&ldquo;{hostInfo.notes}&rdquo;</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className={`text-sm text-gray-600 space-y-1 ${hostInfo ? 'pt-3 border-t border-amber-200' : ''}`}>
+                    <p>Your signup: party of {g.party_size}</p>
+                    {g.dietary_restrictions.length > 0 && (
+                      <p>Dietary: {g.dietary_restrictions.join(', ')}</p>
+                    )}
+                    {g.can_walk && <p>Can walk</p>}
+                  </div>
+                </div>
+              </Link>
+            )
+          }
+        })}
       </div>
     </div>
   )
