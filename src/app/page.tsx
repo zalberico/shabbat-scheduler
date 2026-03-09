@@ -50,8 +50,8 @@ export default function Home() {
                 </div>
                 <h4 className="font-semibold text-lg mb-2">Sign Up by Wednesday</h4>
                 <p className="text-gray-600">
-                  Hosts offer their table with seats, kashrut, and observance level.
-                  Guests sign up with their party size and preferences.
+                  Hosts offer their table with seats, kashrut, and observance level &mdash; even weeks in advance.
+                  Guests browse upcoming dinners and sign up directly, or join the match pool.
                 </p>
               </div>
               <div className="text-center">
@@ -70,8 +70,8 @@ export default function Home() {
                 </div>
                 <h4 className="font-semibold text-lg mb-2">Friday Dinner</h4>
                 <p className="text-gray-600">
-                  Everyone gets an email introduction. The host shares their address
-                  and you enjoy a beautiful Shabbat meal together.
+                  Everyone gets a group email so you can coordinate.
+                  The host shares their address and you enjoy a beautiful Shabbat meal together.
                 </p>
               </div>
             </div>
@@ -84,8 +84,9 @@ export default function Home() {
             <h3 className="text-2xl font-bold text-[var(--color-primary)] text-center mb-12">
               Built for Our Community
             </h3>
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
+                { title: 'Plan Ahead', desc: 'Hosts can list dinners up to 6 weeks in advance. Guests browse all upcoming dinners and sign up directly.' },
                 { title: 'Kashrut Levels', desc: 'From flexible to glatt kosher — the system matches guests with compatible hosts.' },
                 { title: 'Observance Levels', desc: 'Hosts set their dinner observance level and guests set their minimum — matching respects both.' },
                 { title: 'Walking Distance', desc: 'Guests who walk on Shabbat can share their address and get matched to nearby hosts.' },

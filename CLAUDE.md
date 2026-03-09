@@ -22,10 +22,12 @@
 - **Types + constants**: `src/lib/types/database.ts` (kashrut levels, dietary options, start times)
 - **Auth helpers**: `src/lib/auth.ts` (`requireAuth`, `requireAdmin`)
 - **Matching algorithm**: `src/app/api/match/route.ts`
-- **Email templates**: `src/lib/email/templates.tsx`
+- **Admin match management**: `src/app/api/admin/matches/route.ts` (manual guest placement: assign/remove)
+- **Email templates**: `src/lib/email/templates.tsx` (match group, cancellation, dinner-full notifications)
 - **Supabase clients**: `src/lib/supabase/` (client.ts, server.ts, admin.ts, middleware.ts)
 - **Week picker**: `src/components/week-picker.tsx` (reusable, used by host + admin pages)
 - **Cron config**: `vercel.json`
+- **Landing page**: `src/app/page.tsx`
 
 ## Common Patterns
 
@@ -38,7 +40,11 @@
 - **Multi-week hosting**: Hosts can list dinners up to 6 weeks ahead. Browse page shows all upcoming dinners in a flat list (no week filter). Host/admin pages use `WeekPicker` component with `?week=` URL param. API routes accept `week_of` from body/query, default to `getWeekOf()`.
 - **Cron jobs are this-week only**: `/api/cron/match` and `/api/cron/remind` always use `getWeekOf()`. Future-week matching must be triggered manually by admin via `/admin/match`.
 - `@ts-expect-error` or `as any` casts on Supabase joined query results (e.g., `host.users.name`) due to type inference limitations
+- **Set iteration**: TypeScript target doesn't support `[...new Set()]` — use `Array.from(new Set())` instead
 - Match notifications use a single group email per match (`to: [hostEmail, ...guestEmails]`) via Resend, so everyone can reply-all. Template is `MatchGroupEmail`.
+- **Batched match resolution**: Dashboard and history pages resolve match details (guest lists for hosts, host info for guests) using batched queries with `Promise.all` and lookup maps, not N+1 queries per entry. See `UpcomingDinners` in `dashboard/page.tsx` for the pattern.
+- **Admin multi-week view**: Admin dashboard shows all weeks in a flat list with per-week stats (seats open, guests unmatched). Admin can manually assign/remove guests from dinners via `/admin/match`.
+- **Email notifications**: Cancellation emails sent when host cancels (to matched guests). Dinner-full emails sent when a dinner reaches capacity.
 
 ## Deployment
 
