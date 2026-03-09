@@ -390,7 +390,7 @@ export default function BrowsePage() {
 
                 {/* Host cards for this week */}
                 {weekHosts.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className={`grid grid-cols-1 ${weekHosts.length > 1 ? 'md:grid-cols-2' : ''} gap-4`}>
                     {weekHosts.map((host) => {
                       const remaining = host.seats_available - host.seatsUsed
                       const isFull = remaining <= 0
