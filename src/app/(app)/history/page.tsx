@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { formatWeekOf, formatStartTime } from '@/lib/utils'
+import { getWeekOf, formatWeekOf, formatStartTime } from '@/lib/utils'
 import { KASHRUT_LEVELS, OBSERVANCE_LEVELS } from '@/lib/types/database'
 import { redirect } from 'next/navigation'
 
@@ -10,21 +10,25 @@ export default async function HistoryPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const weekOf = getWeekOf()
+
   const kashrutLabel = (level: string) =>
     KASHRUT_LEVELS.find((k) => k.value === level)?.label || level
 
-  // Round 1: Fetch full host and guest entries
+  // Round 1: Fetch full host and guest entries (only past weeks)
   const [{ data: pastHosts }, { data: pastGuests }] = await Promise.all([
     supabase
       .from('weekly_hosts')
       .select('*')
       .eq('user_id', user.id)
+      .lt('week_of', weekOf)
       .order('week_of', { ascending: false })
       .limit(20),
     supabase
       .from('weekly_guests')
       .select('*')
       .eq('user_id', user.id)
+      .lt('week_of', weekOf)
       .order('week_of', { ascending: false })
       .limit(20),
   ])
