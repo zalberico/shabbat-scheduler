@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getWeekOf, isBeforeDeadline, formatStartTime } from '@/lib/utils'
 import { KASHRUT_LEVELS, OBSERVANCE_LEVELS, START_TIMES } from '@/lib/types/database'
@@ -37,6 +38,13 @@ export default function HostPage() {
   const [mode, setMode] = useState<'overview' | 'edit'>('overview')
   const [guests, setGuests] = useState<GuestInfo[]>([])
   const [seatsUsed, setSeatsUsed] = useState(0)
+
+  const [guestConflict, setGuestConflict] = useState<{
+    id: string
+    signupType: 'match_pool' | 'direct'
+    hostName: string | null
+  } | null>(null)
+  const [cancellingGuest, setCancellingGuest] = useState(false)
 
   const [seats, setSeats] = useState(4)
   const [kashrut, setKashrut] = useState<KashrutLevel>('none')
@@ -74,6 +82,40 @@ export default function HostPage() {
         .eq('week_of', weekOf)
         .neq('status', 'cancelled')
         .single()
+
+      // Check if user has a guest signup for this week
+      const { data: guestEntry } = await supabase
+        .from('weekly_guests')
+        .select('id, signup_type, selected_host_id')
+        .eq('user_id', user.id)
+        .eq('week_of', weekOf)
+        .single()
+
+      if (guestEntry) {
+        let hostName: string | null = null
+        if (guestEntry.selected_host_id) {
+          const { data: hostData } = await supabase
+            .from('weekly_hosts')
+            .select('user_id')
+            .eq('id', guestEntry.selected_host_id)
+            .single()
+          if (hostData) {
+            const { data: hostUser } = await supabase
+              .from('users')
+              .select('name')
+              .eq('id', hostData.user_id)
+              .single()
+            hostName = hostUser?.name?.split(' ')[0] || null
+          }
+        }
+        setGuestConflict({
+          id: guestEntry.id,
+          signupType: guestEntry.signup_type as 'match_pool' | 'direct',
+          hostName,
+        })
+      } else {
+        setGuestConflict(null)
+      }
 
       if (host) {
         setExisting(host.id)
@@ -207,6 +249,21 @@ export default function HostPage() {
     router.push(`/host?week=${newWeek}`, { scroll: false })
   }
 
+  async function handleCancelGuestSignup() {
+    if (!guestConflict) return
+    setCancellingGuest(true)
+
+    if (guestConflict.signupType === 'direct') {
+      await fetch(`/api/direct-signup?week=${weekOf}`, { method: 'DELETE' })
+    } else {
+      const supabase = createClient()
+      await supabase.from('weekly_guests').delete().eq('id', guestConflict.id)
+    }
+
+    setGuestConflict(null)
+    setCancellingGuest(false)
+  }
+
   const beforeDeadline = isBeforeDeadline(weekOf)
 
   // Past deadline with no existing entry — show closed message
@@ -236,6 +293,44 @@ export default function HostPage() {
     )
   }
 
+  // Guest conflict — block hosting if no existing host entry
+  if (guestConflict && !existing) {
+    return (
+      <div>
+        <h1 className="page-title">Host a Dinner</h1>
+        <div className="mb-6">
+          <WeekPicker selected={weekOf} onChange={handleWeekChange} />
+        </div>
+        <div className="card bg-amber-50 border border-amber-200">
+          <p className="text-sm font-medium text-amber-800">
+            {guestConflict.signupType === 'direct' && guestConflict.hostName
+              ? <>You&apos;re signed up as a guest for <strong>{guestConflict.hostName}&apos;s</strong> dinner this week.</>
+              : <>You&apos;re in the guest matching pool this week.</>
+            }
+          </p>
+          <p className="text-sm text-amber-700 mt-2">
+            Since Shabbat dinner is Friday night, you can only attend one dinner.
+          </p>
+          <div className="flex flex-wrap gap-3 mt-4">
+            <button
+              onClick={handleCancelGuestSignup}
+              disabled={cancellingGuest}
+              className="btn-primary text-sm"
+            >
+              {cancellingGuest ? 'Cancelling...' : 'Cancel guest signup to host instead'}
+            </button>
+            <Link
+              href={guestConflict.signupType === 'direct' ? '/browse' : `/join?week=${weekOf}`}
+              className="btn-secondary text-sm"
+            >
+              {guestConflict.signupType === 'direct' ? 'View on Browse' : 'View signup'}
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Existing entry in overview mode
   if (existing && mode === 'overview') {
     return (
@@ -244,6 +339,28 @@ export default function HostPage() {
         <div className="mb-6">
           <WeekPicker selected={weekOf} onChange={handleWeekChange} />
         </div>
+
+        {/* Guest conflict warning (edge case: both host and guest entries exist) */}
+        {guestConflict && (
+          <div className="card mb-4 bg-amber-50 border border-amber-200">
+            <p className="text-sm font-medium text-amber-800">
+              {guestConflict.signupType === 'direct' && guestConflict.hostName
+                ? <>You&apos;re also signed up as a guest for <strong>{guestConflict.hostName}&apos;s</strong> dinner this week.</>
+                : <>You&apos;re also in the guest matching pool this week.</>
+              }
+            </p>
+            <p className="text-xs text-amber-600 mt-1">
+              Since Shabbat dinner is Friday night, you can only attend one dinner.
+            </p>
+            <button
+              onClick={handleCancelGuestSignup}
+              disabled={cancellingGuest}
+              className="btn-danger text-sm mt-3"
+            >
+              {cancellingGuest ? 'Cancelling...' : 'Cancel guest signup'}
+            </button>
+          </div>
+        )}
 
         {/* Dinner Details */}
         <div className="card mb-4">
