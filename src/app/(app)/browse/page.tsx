@@ -131,59 +131,9 @@ export default function BrowsePage() {
           .select('id, name')
           .in('id', userIds)
 
-        // Fetch direct signup counts per host
-        const { data: directSignups } = await supabase
-          .from('weekly_guests')
-          .select('selected_host_id, party_size')
-          .gte('week_of', thisWeek)
-          .eq('signup_type', 'direct')
-          .not('selected_host_id', 'is', null)
-
-        const seatsByHost = new Map<string, number>()
-        directSignups?.forEach((g) => {
-          if (g.selected_host_id) {
-            seatsByHost.set(g.selected_host_id, (seatsByHost.get(g.selected_host_id) || 0) + g.party_size)
-          }
-        })
-
-        // Also count algorithm/admin-matched guests via match_guests
-        const hostIds = weeklyHosts.map((h) => h.id)
-        const { data: matchRows } = await supabase
-          .from('matches')
-          .select('id, host_id')
-          .in('host_id', hostIds)
-
-        if (matchRows?.length) {
-          const matchIds = matchRows.map((m) => m.id)
-          const { data: matchGuestRows } = await supabase
-            .from('match_guests')
-            .select('match_id, guest_id')
-            .in('match_id', matchIds)
-
-          if (matchGuestRows?.length) {
-            const matchGuestIds = matchGuestRows.map((mg) => mg.guest_id)
-            const { data: matchedGuests } = await supabase
-              .from('weekly_guests')
-              .select('id, party_size')
-              .in('id', matchGuestIds)
-              .eq('signup_type', 'match_pool')
-
-            // Build map from guest_id -> host_id via match
-            const guestToHost = new Map<string, string>()
-            matchRows.forEach((m) => {
-              matchGuestRows
-                .filter((mg) => mg.match_id === m.id)
-                .forEach((mg) => guestToHost.set(mg.guest_id, m.host_id))
-            })
-
-            matchedGuests?.forEach((g) => {
-              const hostId = guestToHost.get(g.id)
-              if (hostId) {
-                seatsByHost.set(hostId, (seatsByHost.get(hostId) || 0) + g.party_size)
-              }
-            })
-          }
-        }
+        // Fetch seat counts from API (uses admin client, bypasses RLS)
+        const seatCountRes = await fetch(`/api/seat-counts?week=${thisWeek}`)
+        const seatsByHost: Record<string, number> = seatCountRes.ok ? await seatCountRes.json() : {}
 
         const cards: HostCard[] = weeklyHosts.map((h) => ({
           id: h.id,
@@ -200,7 +150,7 @@ export default function BrowsePage() {
           lat: h.lat,
           lng: h.lng,
           notes: h.notes,
-          seatsUsed: seatsByHost.get(h.id) || 0,
+          seatsUsed: seatsByHost[h.id] || 0,
         }))
 
         setHosts(cards)
