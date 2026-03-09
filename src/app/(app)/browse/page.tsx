@@ -146,6 +146,45 @@ export default function BrowsePage() {
           }
         })
 
+        // Also count algorithm/admin-matched guests via match_guests
+        const hostIds = weeklyHosts.map((h) => h.id)
+        const { data: matchRows } = await supabase
+          .from('matches')
+          .select('id, host_id')
+          .in('host_id', hostIds)
+
+        if (matchRows?.length) {
+          const matchIds = matchRows.map((m) => m.id)
+          const { data: matchGuestRows } = await supabase
+            .from('match_guests')
+            .select('match_id, guest_id')
+            .in('match_id', matchIds)
+
+          if (matchGuestRows?.length) {
+            const matchGuestIds = matchGuestRows.map((mg) => mg.guest_id)
+            const { data: matchedGuests } = await supabase
+              .from('weekly_guests')
+              .select('id, party_size')
+              .in('id', matchGuestIds)
+              .eq('signup_type', 'match_pool')
+
+            // Build map from guest_id -> host_id via match
+            const guestToHost = new Map<string, string>()
+            matchRows.forEach((m) => {
+              matchGuestRows
+                .filter((mg) => mg.match_id === m.id)
+                .forEach((mg) => guestToHost.set(mg.guest_id, m.host_id))
+            })
+
+            matchedGuests?.forEach((g) => {
+              const hostId = guestToHost.get(g.id)
+              if (hostId) {
+                seatsByHost.set(hostId, (seatsByHost.get(hostId) || 0) + g.party_size)
+              }
+            })
+          }
+        }
+
         const cards: HostCard[] = weeklyHosts.map((h) => ({
           id: h.id,
           user_id: h.user_id,
