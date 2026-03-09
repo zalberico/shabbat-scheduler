@@ -8,7 +8,7 @@ A web app for the Noe Valley Chavurah to coordinate weekly Shabbat dinners. Memb
 
 1. **Sunday-Wednesday**: Hosts offer seats (with kashrut level, start time, preferences). Guests sign up (party size, dietary needs, requirements). Hosts can list dinners up to 6 weeks in advance; guests can browse and directly sign up for any upcoming dinner.
 2. **Wednesday 11:59 PM PT**: Signup deadline (per-week — each Friday has its own Wednesday cutoff)
-3. **Thursday 8 AM PT**: Automated matching runs for this Friday — a group email goes out to each match (host + guests together) with dinner details
+3. **Thursday 8 AM PT**: Automated matching runs for this Friday — a group email goes out to each match (host + guests together) with dinner details. Admins can also manually trigger matching for future weeks and assign/remove guests from dinners.
 4. **Friday**: Shabbat shalom!
 
 ## Tech Stack
@@ -26,19 +26,22 @@ src/
 ├── app/
 │   ├── (auth)/           # Login, signup pages
 │   ├── (app)/            # Authenticated pages
-│   │   ├── dashboard/    # Weekly status overview
+│   │   ├── dashboard/    # Weekly status + upcoming dinners with full details
 │   │   ├── host/         # Host signup form (supports future weeks)
 │   │   ├── browse/       # Browse & direct signup for dinners (all upcoming weeks)
 │   │   ├── join/         # Guest signup form (match pool, this week only)
 │   │   ├── profile/      # User preferences
-│   │   ├── history/      # Past dinners
-│   │   └── admin/        # Admin dashboard, matching, members, allowlist
+│   │   ├── history/      # Past dinners with full detail cards
+│   │   └── admin/        # Multi-week dashboard, manual matching, members, allowlist
 │   ├── api/
 │   │   ├── match/        # Matching algorithm
 │   │   ├── send-notifications/  # Match result emails
 │   │   ├── send-reminders/      # Weekly reminder emails
 │   │   ├── cron/         # Vercel cron endpoints
-│   │   ├── admin/        # Admin API routes
+│   │   ├── admin/        # Admin API (members, allowlist, manual guest placement)
+│   │   ├── host-guests/         # Host guest list lookup
+│   │   ├── cancel-hosting/      # Host cancellation (with guest notifications)
+│   │   ├── direct-signup/       # Guest direct signup for a specific dinner
 │   │   ├── check-allowlist/     # Phone allowlist lookup
 │   │   ├── verify-phone/       # SMS verification (send/check)
 │   │   └── geocode/            # Address geocoding
@@ -78,6 +81,10 @@ The matching runs as a greedy algorithm with hard constraints and soft scoring:
 Hosts are sorted most-constrained-first (strictest kashrut, highest observance, fewest seats), then guests are greedily assigned by score.
 
 Match notifications are sent as a single group email per match (host + all guests in the `to` field) so everyone can reply-all to coordinate.
+
+**Additional notifications**:
+- **Cancellation**: When a host cancels, matched guests are emailed automatically
+- **Dinner full**: When a dinner reaches capacity via direct signups, the host is notified
 
 ## Local Development
 
