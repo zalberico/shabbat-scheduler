@@ -59,16 +59,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'You cannot sign up for your own dinner' }, { status: 400 })
   }
 
-  // Calculate remaining seats (direct signups + algorithm/admin-matched guests)
-  const { data: directSignups } = await adminClient
-    .from('weekly_guests')
-    .select('party_size')
-    .eq('selected_host_id', host.id)
-    .eq('signup_type', 'direct')
+  // Calculate remaining seats via match_guests (covers direct, algorithm, and admin-placed)
+  let usedSeats = 0
 
-  let usedSeats = directSignups?.reduce((sum, g) => sum + g.party_size, 0) || 0
-
-  // Also count match_pool guests placed via algorithm or admin
   const { data: hostMatch } = await adminClient
     .from('matches')
     .select('id')
@@ -88,9 +81,8 @@ export async function POST(request: Request) {
         .from('weekly_guests')
         .select('party_size')
         .in('id', mgIds)
-        .eq('signup_type', 'match_pool')
 
-      usedSeats += matchedGuests?.reduce((sum, g) => sum + g.party_size, 0) || 0
+      usedSeats = matchedGuests?.reduce((sum, g) => sum + g.party_size, 0) || 0
     }
   }
 
