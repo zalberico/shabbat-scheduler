@@ -253,15 +253,14 @@ export default function HostPage() {
     if (!guestConflict) return
     setCancellingGuest(true)
 
-    if (guestConflict.signupType === 'direct') {
-      await fetch(`/api/direct-signup?week=${weekOf}`, { method: 'DELETE' })
-    } else {
-      const supabase = createClient()
-      await supabase.from('weekly_guests').delete().eq('id', guestConflict.id)
-    }
+    // Cancel via API so placement rows are cleaned up and the host is
+    // notified if this guest was already seated
+    const res = await fetch(`/api/cancel-signup?week=${weekOf}`, { method: 'DELETE' })
 
-    setGuestConflict(null)
     setCancellingGuest(false)
+    if (res.ok) {
+      setGuestConflict(null)
+    }
   }
 
   const beforeDeadline = isBeforeDeadline(weekOf)

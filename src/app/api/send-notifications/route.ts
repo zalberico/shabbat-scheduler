@@ -6,9 +6,11 @@ import { getWeekOf, formatWeekOf, formatStartTime } from '@/lib/utils'
 import { KASHRUT_LEVELS, OBSERVANCE_LEVELS } from '@/lib/types/database'
 import { NextResponse } from 'next/server'
 
+export const maxDuration = 60
+
 async function isAuthorized(request: Request): Promise<boolean> {
   const authHeader = request.headers.get('authorization')
-  if (authHeader === `Bearer ${process.env.CRON_SECRET}`) return true
+  if (process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`) return true
   try {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -122,6 +124,8 @@ export async function POST(request: Request) {
       } catch (e) {
         console.error('Failed to send group match email:', e)
       }
+      // Stay under Resend's requests-per-second rate limit
+      await new Promise((resolve) => setTimeout(resolve, 250))
     }
   }
 
@@ -156,6 +160,8 @@ export async function POST(request: Request) {
       } catch (e) {
         console.error('Failed to send unmatched email:', e)
       }
+      // Stay under Resend's requests-per-second rate limit
+      await new Promise((resolve) => setTimeout(resolve, 250))
     }
   }
 

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getWeekOf } from '@/lib/utils'
+import { notifyHostIfDinnerFull } from '@/lib/email/dinner-full'
 import { NextResponse } from 'next/server'
 
 async function checkAdmin() {
@@ -246,6 +247,9 @@ export async function POST(request: Request) {
       .update({ status: 'matched' as const })
       .eq('id', host.id),
   ])
+
+  // Notify the host if this filled their table
+  await notifyHostIfDinnerFull(host.id, weekOf)
 
   return NextResponse.json({ success: true })
 }

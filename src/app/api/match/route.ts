@@ -4,11 +4,15 @@ import { KASHRUT_RANK, OBSERVANCE_RANK } from '@/lib/types/database'
 import type { KashrutLevel, ShabbatObservance } from '@/lib/types/database'
 import { NextResponse } from 'next/server'
 import { getWeekOf, haversineDistanceMiles } from '@/lib/utils'
+import { notifyHostIfDinnerFull } from '@/lib/email/dinner-full'
+
+export const maxDuration = 60
 
 async function isAuthorized(request: Request): Promise<boolean> {
-  // Check cron secret
+  // Check cron secret (require it to be configured, else 'Bearer undefined'
+  // would be accepted)
   const authHeader = request.headers.get('authorization')
-  if (authHeader === `Bearer ${process.env.CRON_SECRET}`) return true
+  if (process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`) return true
 
   // Check if admin user
   try {
@@ -125,12 +129,20 @@ export async function POST(request: Request) {
     .select('host_id, match_guests(guest_id, weekly_guests(user_id))')
     .gte('week_of', new Date(Date.now() - 8 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
 
+  // Resolve past host entries to user ids — past-week host_ids aren't in
+  // this week's hosts list, so they must be looked up directly
+  const recentHostIds = Array.from(new Set((recentMatches || []).map((m) => m.host_id)))
+  const { data: recentHostRows } = recentHostIds.length
+    ? await supabase.from('weekly_hosts').select('id, user_id').in('id', recentHostIds)
+    : { data: [] as { id: string; user_id: string }[] }
+  const recentHostUserById = new Map<string, string>()
+  recentHostRows?.forEach((h) => recentHostUserById.set(h.id, h.user_id))
+
   // Build a map of recent host-guest pairings
   const recentPairings = new Set<string>()
   recentMatches?.forEach((match) => {
-    const hostEntry = hosts?.find((h) => h.id === match.host_id)
-    if (!hostEntry) return
-    const hostUserId = hostEntry.user_id
+    const hostUserId = recentHostUserById.get(match.host_id)
+    if (!hostUserId) return
     match.match_guests?.forEach((mg: any) => {
       const guestUserId = mg.weekly_guests?.user_id
       if (guestUserId) {
@@ -158,44 +170,52 @@ export async function POST(request: Request) {
     let remainingSeats = host.seats_available - (seatsUsed.get(host.id) || 0)
     if (remainingSeats <= 0) continue
     const tableGuests: string[] = []
+    const tableDietary: string[] = []
 
     const hostObsRank = OBSERVANCE_RANK[(host.observance_level as ShabbatObservance) || 'flexible']
 
-    // Score and sort eligible guests
-    const eligibleGuests = guests
-      .filter((g) => {
-        if (assignedGuests.has(g.id)) return false
-        if (g.party_size > remainingSeats) return false
+    // Hard constraints (party size is re-checked per pick as seats shrink)
+    const candidates = guests.filter((g) => {
+      if (assignedGuests.has(g.id)) return false
 
-        // Hard constraint: kashrut compatibility
-        const guestReq = KASHRUT_RANK[g.kashrut_requirement as KashrutLevel]
-        const hostLevel = KASHRUT_RANK[host.kashrut_level as KashrutLevel]
-        if (guestReq > hostLevel) return false
+      // Hard constraint: kashrut compatibility
+      const guestReq = KASHRUT_RANK[g.kashrut_requirement as KashrutLevel]
+      const hostLevel = KASHRUT_RANK[host.kashrut_level as KashrutLevel]
+      if (guestReq > hostLevel) return false
 
-        // Hard constraint: observance compatibility
-        const guestObsReq = OBSERVANCE_RANK[(g.observance_requirement as ShabbatObservance) || 'flexible']
-        if (guestObsReq > hostObsRank) return false
+      // Hard constraint: observance compatibility
+      const guestObsReq = OBSERVANCE_RANK[(g.observance_requirement as ShabbatObservance) || 'flexible']
+      if (guestObsReq > hostObsRank) return false
 
-        // Hard constraint: kid-friendly
-        if (g.needs_kid_friendly && !host.kids_friendly) return false
+      // Hard constraint: kid-friendly
+      if (g.needs_kid_friendly && !host.kids_friendly) return false
 
-        // Hard constraint: dog-friendly
-        if (g.needs_dog_friendly && !host.dogs_friendly) return false
+      // Hard constraint: dog-friendly
+      if (g.needs_dog_friendly && !host.dogs_friendly) return false
 
-        // Hard constraint: walking distance
-        if (g.can_walk && g.lat != null && g.lng != null) {
-          if (host.lat != null && host.lng != null) {
-            const dist = haversineDistanceMiles(g.lat, g.lng, host.lat, host.lng)
-            if (dist > 1.0) return false
-          } else {
-            // Guest needs to walk but host didn't share address
-            return false
-          }
+      // Hard constraint: walking distance
+      if (g.can_walk && g.lat != null && g.lng != null) {
+        if (host.lat != null && host.lng != null) {
+          const dist = haversineDistanceMiles(g.lat, g.lng, host.lat, host.lng)
+          if (dist > 1.0) return false
+        } else {
+          // Guest needs to walk but host didn't share address
+          return false
         }
+      }
 
-        return true
-      })
-      .map((g) => {
+      return true
+    })
+
+    // Pick the best-scoring guest one at a time so the dietary-grouping term
+    // can see who is already seated at the table
+    while (remainingSeats > 0) {
+      let best: { guest: (typeof candidates)[number]; score: number } | null = null
+
+      for (const g of candidates) {
+        if (assignedGuests.has(g.id)) continue
+        if (g.party_size > remainingSeats) continue
+
         let score = 0
 
         // Novelty: bonus for new pairings
@@ -208,12 +228,8 @@ export async function POST(request: Request) {
         const fillRatio = g.party_size / remainingSeats
         score += fillRatio * 5
 
-        // Dietary compatibility: bonus for matching dietary groups
-        const hostDietary = tableGuests.length > 0
-          ? guests.filter((tg) => tableGuests.includes(tg.id))
-              .flatMap((tg) => tg.dietary_restrictions)
-          : []
-        const overlap = g.dietary_restrictions.filter((d) => hostDietary.includes(d)).length
+        // Dietary compatibility: bonus for matching the table's dietary groups
+        const overlap = g.dietary_restrictions.filter((d) => tableDietary.includes(d)).length
         score += overlap * 2
 
         // Walking proximity bonus
@@ -222,16 +238,16 @@ export async function POST(request: Request) {
           if (dist < 0.5) score += 3
         }
 
-        return { guest: g, score }
-      })
-      .sort((a, b) => b.score - a.score)
+        if (!best || score > best.score) {
+          best = { guest: g, score }
+        }
+      }
 
-    for (const { guest } of eligibleGuests) {
-      if (guest.party_size > remainingSeats) continue
-      tableGuests.push(guest.id)
-      assignedGuests.add(guest.id)
-      remainingSeats -= guest.party_size
-      if (remainingSeats <= 0) break
+      if (!best) break
+      tableGuests.push(best.guest.id)
+      assignedGuests.add(best.guest.id)
+      tableDietary.push(...best.guest.dietary_restrictions)
+      remainingSeats -= best.guest.party_size
     }
 
     if (tableGuests.length > 0) {
@@ -304,6 +320,9 @@ export async function POST(request: Request) {
     if (guestStatusError) {
       console.error('Failed to update guest statuses', result.guestIds, guestStatusError)
     }
+
+    // Notify the host if this filled their table
+    await notifyHostIfDinnerFull(result.hostId, weekOf)
   }
 
   // Mark unmatched guests (only match_pool guests). Guests from failed

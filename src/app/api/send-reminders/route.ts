@@ -1,12 +1,15 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email/send'
 import { ReminderEmail } from '@/lib/email/templates'
+import { unsubscribeUrl } from '@/lib/unsubscribe'
 import { getWeekOf } from '@/lib/utils'
 import { NextResponse } from 'next/server'
 
+export const maxDuration = 60
+
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -14,11 +17,12 @@ export async function POST(request: Request) {
   const supabase = createAdminClient()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://shabbat.example.com'
 
-  // Get all non-banned users
+  // Get all non-banned users who haven't opted out of reminders
   const { data: users } = await supabase
     .from('users')
     .select('id, name, email')
     .eq('is_banned', false)
+    .eq('email_reminders', true)
   if (!users) return NextResponse.json({ sent: 0 })
 
   // Get users already signed up this week
@@ -48,12 +52,18 @@ export async function POST(request: Request) {
         from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
         to: user.email,
         subject: 'Sign up for Shabbat dinner this Friday!',
-        react: ReminderEmail({ name: user.name, appUrl: `${appUrl}/dashboard` }),
+        react: ReminderEmail({
+          name: user.name,
+          appUrl: `${appUrl}/dashboard`,
+          unsubscribeUrl: unsubscribeUrl(user.id),
+        }),
       })
       sent++
     } catch (e) {
       console.error('Failed to send reminder:', e)
     }
+    // Stay under Resend's requests-per-second rate limit
+    await new Promise((resolve) => setTimeout(resolve, 250))
   }
 
   return NextResponse.json({ sent, total: toNotify.length })
