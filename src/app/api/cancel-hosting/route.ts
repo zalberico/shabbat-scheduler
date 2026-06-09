@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { getWeekOf, formatWeekOf } from '@/lib/utils'
-import { Resend } from 'resend'
+import { sendEmail } from '@/lib/email/send'
 import { HostCancelledEmail } from '@/lib/email/templates'
 
 export async function POST(request: Request) {
@@ -87,13 +87,12 @@ export async function POST(request: Request) {
 
       // Send cancellation emails to guests
       if (guestUsers?.length && process.env.RESEND_API_KEY) {
-        const resend = new Resend(process.env.RESEND_API_KEY)
         const formattedWeek = formatWeekOf(weekOf)
         const appUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://shabbat-scheduler.vercel.app'
 
         for (const guest of guestUsers) {
           try {
-            await resend.emails.send({
+            await sendEmail({
               from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
               to: guest.email,
               subject: `${hostName}'s dinner on ${formattedWeek} has been cancelled`,

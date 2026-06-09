@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { Resend } from 'resend'
+import { sendEmail } from '@/lib/email/send'
 import { ReminderEmail } from '@/lib/email/templates'
 import { getWeekOf } from '@/lib/utils'
 import { NextResponse } from 'next/server'
@@ -10,7 +10,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const resend = new Resend(process.env.RESEND_API_KEY)
   const weekOf = getWeekOf()
   const supabase = createAdminClient()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://shabbat.example.com'
@@ -42,7 +41,7 @@ export async function POST(request: Request) {
 
   for (const user of toNotify) {
     try {
-      await resend.emails.send({
+      await sendEmail({
         from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
         to: user.email,
         subject: 'Sign up for Shabbat dinner this Friday!',
