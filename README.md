@@ -8,7 +8,7 @@ A web app for the Noe Valley Chavurah to coordinate weekly Shabbat dinners. Memb
 
 1. **Sunday-Wednesday**: Hosts offer seats (with kashrut level, start time, preferences). Guests sign up (party size, dietary needs, requirements). Hosts can list dinners up to 6 weeks in advance; guests can browse and directly sign up for any upcoming dinner.
 2. **Wednesday 11:59 PM PT**: Signup deadline (per-week — each Friday has its own Wednesday cutoff)
-3. **Thursday 8 AM PT**: Automated matching runs for this Friday — a group email goes out to each match (host + guests together) with dinner details. Admins can also manually trigger matching for future weeks and assign/remove guests from dinners.
+3. **Thursday morning (16:00 UTC — 8 AM PST / 9 AM PDT)**: Automated matching runs for this Friday — a group email goes out to each match (host + guests together) with dinner details. Admins can also manually trigger matching for future weeks and assign/remove guests from dinners; re-running matching is safe (already-placed guests keep their seats, previously unmatched guests are re-considered, and notification emails send at most once).
 4. **Friday**: Shabbat shalom!
 
 ## Tech Stack
@@ -53,7 +53,7 @@ src/
 │   └── week-picker.tsx   # Reusable week selector (host, admin pages)
 ├── lib/
 │   ├── supabase/         # Client, server, admin, middleware
-│   ├── email/            # React Email templates
+│   ├── email/            # React Email templates + send helper (throws on Resend errors)
 │   ├── types/            # Database types + constants
 │   ├── auth.ts           # requireAuth/requireAdmin helpers
 │   └── utils.ts          # Date helpers, formatting, multi-week utilities
@@ -80,11 +80,12 @@ The matching runs as a greedy algorithm with hard constraints and soft scoring:
 
 Hosts are sorted most-constrained-first (strictest kashrut, highest observance, fewest seats), then guests are greedily assigned by score.
 
-Match notifications are sent as a single group email per match (host + all guests in the `to` field) so everyone can reply-all to coordinate.
+Match notifications are sent as a single group email per match (`to:` host, `cc:` all guests) so everyone can reply-all to coordinate. Notifications are idempotent — each match group and unmatched guest is emailed at most once per week (`notified_at` tracking).
 
 **Additional notifications**:
-- **Cancellation**: When a host cancels, matched guests are emailed automatically
+- **Cancellation**: When a host cancels, matched guests are emailed automatically (and returned to the match pool)
 - **Dinner full**: When a dinner reaches capacity via direct signups, the host is notified
+- **No match**: Guests the algorithm couldn't place get a try-again-next-week email
 
 ## Local Development
 
@@ -96,8 +97,10 @@ npm install
 cp .env.local.example .env.local
 # Fill in your Supabase and Resend credentials
 
-# Run database migrations
+# Run database migrations (supabase/migrations/, applied in order)
 npx supabase db reset --linked
+# In production, new migrations are run manually in the Supabase SQL editor
+# BEFORE merging code that depends on them
 
 # Start dev server
 npm run dev
@@ -124,12 +127,14 @@ Configured in `vercel.json`:
 
 | Schedule | Endpoint | Description |
 |---|---|---|
-| Thursday 8 AM PT | `/api/cron/match` | Runs matching algorithm + sends notification emails |
-| Monday 9 AM PT | `/api/cron/remind` | Sends reminder emails to members who haven't signed up |
+| Thursday 16:00 UTC (8 AM PST / 9 AM PDT) | `/api/cron/match` | Runs matching algorithm + sends notification emails |
+| Monday 17:00 UTC (9 AM PST / 10 AM PDT) | `/api/cron/remind` | Sends reminder emails to members who haven't signed up (excluding banned users) |
+
+All week/deadline logic is anchored to Pacific Time regardless of server timezone.
 
 ## Access Control
 
-- **Signup**: Requires phone number on the community allowlist (managed by admins), verified via Twilio SMS (can be bypassed with `SKIP_SMS_VERIFICATION=true`)
-- **Auth**: Supabase magic link emails (passwordless)
-- **RLS**: Row Level Security on all tables — users see only their own data, admins see everything
+- **Signup**: Requires phone number on the community allowlist (managed by admins), verified via Twilio SMS. Verification is enforced server-side: a successful code check is recorded in a service-role-only ledger (bound to the signup email) that the auth callback requires before creating the profile, setting `phone_verified` on the user. Can be bypassed with `SKIP_SMS_VERIFICATION=true` (bypass-created accounts are marked `phone_verified = false`).
+- **Auth**: Supabase magic link emails (passwordless). Profile creation is server-only — clients cannot insert `users` rows, and client updates are restricted to editable profile fields (not phone/admin/ban/verification flags).
+- **RLS**: Row Level Security on all tables — users see only their own data, admins see everything. Restrictive policies also enforce business rules on client-side writes: no hosting and guesting in the same week, party sizes must fit host capacity, and hosts can't reduce seats below booked.
 - **Admin**: `is_admin` flag on user profile, checked server-side via `requireAdmin()`
