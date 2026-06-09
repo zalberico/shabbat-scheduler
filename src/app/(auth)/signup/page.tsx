@@ -75,7 +75,7 @@ export default function SignupPage() {
     const res = await fetch('/api/verify-phone/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: normalizedPhone, code }),
+      body: JSON.stringify({ phone: normalizedPhone, code, email }),
     })
 
     const data = await res.json()

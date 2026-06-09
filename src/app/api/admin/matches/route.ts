@@ -141,7 +141,7 @@ export async function POST(request: Request) {
   // Verify guest exists and is unmatched/pending
   const { data: guest } = await adminClient
     .from('weekly_guests')
-    .select('id, party_size, status')
+    .select('id, user_id, party_size, status')
     .eq('id', body.guest_id)
     .eq('week_of', weekOf)
     .single()
@@ -166,6 +166,20 @@ export async function POST(request: Request) {
   }
   if (host.status === 'cancelled') {
     return NextResponse.json({ error: 'This dinner has been cancelled' }, { status: 400 })
+  }
+
+  // Guest can't be placed at a dinner if they're hosting this week
+  // (including this very dinner)
+  const { data: guestHostEntry } = await adminClient
+    .from('weekly_hosts')
+    .select('id')
+    .eq('user_id', guest.user_id)
+    .eq('week_of', weekOf)
+    .neq('status', 'cancelled')
+    .single()
+
+  if (guestHostEntry) {
+    return NextResponse.json({ error: 'This guest is hosting a dinner this week' }, { status: 409 })
   }
 
   // Calculate used seats from match_guests
