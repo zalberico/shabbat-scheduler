@@ -1,18 +1,32 @@
 import { clsx, type ClassValue } from 'clsx'
-import { nextFriday, format, isBefore, startOfDay, addWeeks, parseISO } from 'date-fns'
+import { format, startOfDay, addWeeks, parseISO } from 'date-fns'
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs)
 }
 
+const PT_TIME_ZONE = 'America/Los_Angeles'
+
+// Today's calendar date in Pacific Time, as a local-midnight Date.
+// Anchoring to PT keeps week boundaries and deadlines identical whether
+// this runs on Vercel (UTC) or in a user's browser.
+function todayInPT(): Date {
+  const ymd = new Intl.DateTimeFormat('en-CA', {
+    timeZone: PT_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+  return parseISO(ymd)
+}
+
 export function getNextFriday(): Date {
-  const now = new Date()
-  const today = startOfDay(now)
-  // If today is Friday, use today; otherwise get next Friday
-  if (today.getDay() === 5) {
-    return today
-  }
-  return startOfDay(nextFriday(now))
+  const today = todayInPT()
+  // If today is Friday (in PT), use today; otherwise get next Friday
+  const daysUntilFriday = (5 - today.getDay() + 7) % 7
+  const friday = new Date(today)
+  friday.setDate(friday.getDate() + daysUntilFriday)
+  return friday
 }
 
 export function getWeekOf(): string {
@@ -24,15 +38,27 @@ export function formatWeekOf(dateStr: string): string {
 }
 
 export function isBeforeDeadline(weekOf?: string): boolean {
-  const now = new Date()
   const friday = weekOf
     ? startOfDay(parseISO(weekOf))
     : getNextFriday()
-  // Deadline is Wednesday 11:59 PM PT before the Friday
-  const deadline = new Date(friday)
-  deadline.setDate(deadline.getDate() - 2) // Wednesday
-  deadline.setHours(23, 59, 59, 999)
-  return isBefore(now, deadline)
+  // Deadline is Wednesday 11:59 PM PT before the Friday, regardless of
+  // the runtime timezone
+  const wednesday = new Date(friday)
+  wednesday.setDate(wednesday.getDate() - 2)
+  const y = wednesday.getFullYear()
+  const m = wednesday.getMonth()
+  const d = wednesday.getDate()
+  // PT's UTC offset on that Wednesday (7 during PDT, 8 during PST)
+  const ptHourAtNoonUtc = Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: PT_TIME_ZONE,
+      hour: '2-digit',
+      hourCycle: 'h23',
+    }).format(new Date(Date.UTC(y, m, d, 12)))
+  )
+  const ptOffsetHours = 12 - ptHourAtNoonUtc
+  const deadlineMs = Date.UTC(y, m, d, 23, 59, 59, 999) + ptOffsetHours * 3600 * 1000
+  return Date.now() < deadlineMs
 }
 
 export function getFutureFridays(count: number): string[] {

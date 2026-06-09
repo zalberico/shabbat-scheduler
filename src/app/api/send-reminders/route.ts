@@ -14,8 +14,11 @@ export async function POST(request: Request) {
   const supabase = createAdminClient()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://shabbat.example.com'
 
-  // Get all users
-  const { data: users } = await supabase.from('users').select('id, name, email')
+  // Get all non-banned users
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, name, email')
+    .eq('is_banned', false)
   if (!users) return NextResponse.json({ sent: 0 })
 
   // Get users already signed up this week

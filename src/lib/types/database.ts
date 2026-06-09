@@ -180,6 +180,7 @@ export interface Database {
           status: GuestStatus
           signup_type: SignupType
           selected_host_id: string | null
+          notified_at: string | null
           created_at: string
         }
         Insert: {
@@ -200,6 +201,7 @@ export interface Database {
           status?: GuestStatus
           signup_type?: SignupType
           selected_host_id?: string | null
+          notified_at?: string | null
           created_at?: string
         }
         Update: {
@@ -217,6 +219,7 @@ export interface Database {
           status?: GuestStatus
           signup_type?: SignupType
           selected_host_id?: string | null
+          notified_at?: string | null
         }
       }
       matches: {
@@ -224,17 +227,20 @@ export interface Database {
           id: string
           week_of: string
           host_id: string
+          notified_at: string | null
           created_at: string
         }
         Insert: {
           id?: string
           week_of: string
           host_id: string
+          notified_at?: string | null
           created_at?: string
         }
         Update: {
           week_of?: string
           host_id?: string
+          notified_at?: string | null
         }
       }
       match_guests: {

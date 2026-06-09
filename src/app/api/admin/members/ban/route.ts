@@ -88,27 +88,33 @@ export async function POST(request: Request) {
     .in('status', ['pending', 'matched'])
 
   // 5. Remove from active matches
-  // 5a. Find matches where they are a guest
-  const { data: guestEntries } = await adminClient
-    .from('match_guests')
-    .select('id, match_id, guest_id')
-    .eq('guest_id', userId)
+  // match_guests.guest_id references weekly_guests.id and matches.host_id
+  // references weekly_hosts.id, so resolve the user's entry ids first
+  // 5a. Remove their guest placements
+  const { data: guestRows } = await adminClient
+    .from('weekly_guests')
+    .select('id')
+    .eq('user_id', userId)
 
-  if (guestEntries && guestEntries.length > 0) {
-    // Delete their match_guests rows
+  if (guestRows && guestRows.length > 0) {
     await adminClient
       .from('match_guests')
       .delete()
-      .eq('guest_id', userId)
-
-    // Reset their weekly_guests to pending (already set to unmatched above)
+      .in('guest_id', guestRows.map((g) => g.id))
   }
 
   // 5b. Find matches where they are the host
-  const { data: hostMatches } = await adminClient
-    .from('matches')
+  const { data: hostRows } = await adminClient
+    .from('weekly_hosts')
     .select('id')
-    .eq('host_id', userId)
+    .eq('user_id', userId)
+
+  const { data: hostMatches } = hostRows && hostRows.length > 0
+    ? await adminClient
+        .from('matches')
+        .select('id')
+        .in('host_id', hostRows.map((h) => h.id))
+    : { data: null }
 
   if (hostMatches && hostMatches.length > 0) {
     const matchIds = hostMatches.map((m) => m.id)
@@ -124,7 +130,7 @@ export async function POST(request: Request) {
       await adminClient
         .from('weekly_guests')
         .update({ status: 'pending' })
-        .in('user_id', guestIds)
+        .in('id', guestIds)
         .eq('status', 'matched')
     }
 
@@ -138,7 +144,7 @@ export async function POST(request: Request) {
     await adminClient
       .from('matches')
       .delete()
-      .eq('host_id', userId)
+      .in('id', matchIds)
   }
 
   // 6. Ban at Supabase auth level
