@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { getWeekOf, isBeforeDeadline, isValidFutureFriday, formatWeekOf } from '@/lib/utils'
-import { Resend } from 'resend'
+import { sendEmail } from '@/lib/email/send'
 import { GuestCancelledEmail, DinnerFullEmail } from '@/lib/email/templates'
 
 export async function POST(request: Request) {
@@ -182,7 +182,6 @@ export async function POST(request: Request) {
   const newUsedSeats = usedSeats + body.party_size
   if (newUsedSeats >= host.seats_available && process.env.RESEND_API_KEY) {
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY)
       const formattedWeek = formatWeekOf(weekOf)
 
       // Get host user info
@@ -218,7 +217,7 @@ export async function POST(request: Request) {
           dietary: g.dietary_restrictions,
         }))
 
-        await resend.emails.send({
+        await sendEmail({
           from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
           to: hostUser.email,
           subject: `Your Shabbat dinner is full! (${formattedWeek})`,
@@ -347,8 +346,7 @@ export async function DELETE(request: Request) {
       const stillUsed = remainingSignups?.reduce((sum, g) => sum + g.party_size, 0) || 0
       const seatsRemaining = hostSeats - stillUsed
 
-      const resend = new Resend(process.env.RESEND_API_KEY)
-      await resend.emails.send({
+      await sendEmail({
         from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
         to: hostEmail,
         subject: `${guestName.split(' ')[0]} cancelled their signup for your dinner`,

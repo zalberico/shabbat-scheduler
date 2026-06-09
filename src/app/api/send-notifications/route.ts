@@ -1,14 +1,10 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { Resend } from 'resend'
+import { sendEmail } from '@/lib/email/send'
 import { MatchGroupEmail, UnmatchedEmail } from '@/lib/email/templates'
 import { getWeekOf, formatWeekOf, formatStartTime } from '@/lib/utils'
 import { KASHRUT_LEVELS, OBSERVANCE_LEVELS } from '@/lib/types/database'
 import { NextResponse } from 'next/server'
-
-function getResend() {
-  return new Resend(process.env.RESEND_API_KEY)
-}
 
 async function isAuthorized(request: Request): Promise<boolean> {
   const authHeader = request.headers.get('authorization')
@@ -42,7 +38,6 @@ export async function POST(request: Request) {
   const formattedWeek = formatWeekOf(weekOf)
 
   const supabase = createAdminClient()
-  const resend = getResend()
   const sent: string[] = []
 
   // Get all matches for this week
@@ -101,7 +96,7 @@ export async function POST(request: Request) {
 
       // Send a single group email to host + all guests
       try {
-        await resend.emails.send({
+        await sendEmail({
           from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
           to: hostEmail,
           cc: guestEmails,
@@ -139,7 +134,7 @@ export async function POST(request: Request) {
       // @ts-expect-error - joined query types
       const guestEmail = guest.users.email
       try {
-        await resend.emails.send({
+        await sendEmail({
           from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
           to: guestEmail,
           subject: 'No match this week — try again next Friday!',

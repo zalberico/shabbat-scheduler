@@ -229,6 +229,11 @@ export default function SignupPage() {
           <p className="text-xs text-gray-500 mt-1">
             Must match a number in our WhatsApp group.
           </p>
+          <p className="text-xs text-gray-500 mt-1">
+            By providing your number, you agree to receive a one-time SMS
+            verification code. Msg &amp; data rates may apply. See our{' '}
+            <a href="/privacy" className="underline">Privacy Policy</a>.
+          </p>
         </div>
 
         {error && (

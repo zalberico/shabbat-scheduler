@@ -56,18 +56,46 @@ export async function POST(request: Request) {
     .eq('status', 'pending')
     .eq('signup_type', 'match_pool')
 
-  // Calculate used seats per host from direct signups
+  // Calculate used seats per host from existing placements: match_guests
+  // covers direct, algorithm, and admin-placed guests (same accounting as
+  // direct-signup and admin/matches); direct signups without a match row
+  // (legacy/partial failures) are added separately below
+  const { data: weekMatches } = await supabase
+    .from('matches')
+    .select('id, host_id')
+    .eq('week_of', weekOf)
+
+  const hostByMatchId = new Map<string, string>()
+  weekMatches?.forEach((m) => hostByMatchId.set(m.id, m.host_id))
+
+  const seatsUsed = new Map<string, number>()
+  const countedGuestEntryIds = new Set<string>()
+
+  if (weekMatches?.length) {
+    const { data: placedGuests } = await supabase
+      .from('match_guests')
+      .select('match_id, guest_id, weekly_guests(party_size)')
+      .in('match_id', weekMatches.map((m) => m.id))
+
+    placedGuests?.forEach((mg: any) => {
+      const hostId = hostByMatchId.get(mg.match_id)
+      if (hostId) {
+        countedGuestEntryIds.add(mg.guest_id)
+        seatsUsed.set(hostId, (seatsUsed.get(hostId) || 0) + (mg.weekly_guests?.party_size || 0))
+      }
+    })
+  }
+
   const { data: directSignups } = await supabase
     .from('weekly_guests')
-    .select('selected_host_id, party_size')
+    .select('id, selected_host_id, party_size')
     .eq('week_of', weekOf)
     .eq('signup_type', 'direct')
     .not('selected_host_id', 'is', null)
 
-  const directSeatsUsed = new Map<string, number>()
   directSignups?.forEach((g) => {
-    if (g.selected_host_id) {
-      directSeatsUsed.set(g.selected_host_id, (directSeatsUsed.get(g.selected_host_id) || 0) + g.party_size)
+    if (g.selected_host_id && !countedGuestEntryIds.has(g.id)) {
+      seatsUsed.set(g.selected_host_id, (seatsUsed.get(g.selected_host_id) || 0) + g.party_size)
     }
   })
 
@@ -115,7 +143,7 @@ export async function POST(request: Request) {
   const matchResults: { hostId: string; guestIds: string[] }[] = []
 
   for (const host of sortedHosts) {
-    let remainingSeats = host.seats_available - (directSeatsUsed.get(host.id) || 0)
+    let remainingSeats = host.seats_available - (seatsUsed.get(host.id) || 0)
     if (remainingSeats <= 0) continue
     const tableGuests: string[] = []
 
