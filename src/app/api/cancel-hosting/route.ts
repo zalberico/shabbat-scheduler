@@ -73,10 +73,11 @@ export async function POST(request: Request) {
         ? await adminClient.from('users').select('name, email').in('id', guestUserIds)
         : { data: [] }
 
-      // Update linked weekly_guests: unmatched, clear selected_host_id
+      // Update linked weekly_guests: back to pending so the matcher can
+      // re-place pool guests, clear selected_host_id
       await adminClient
         .from('weekly_guests')
-        .update({ status: 'unmatched', selected_host_id: null })
+        .update({ status: 'pending', selected_host_id: null })
         .in('id', guestIds)
 
       // Delete match_guests

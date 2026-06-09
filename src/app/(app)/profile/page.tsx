@@ -65,7 +65,6 @@ export default function ProfilePage() {
       .from('users')
       .update({
         name,
-        phone,
         default_dietary_restrictions: dietary,
         default_kashrut_preference: kashrut,
         default_shabbat_observance: observance,
@@ -130,9 +129,13 @@ export default function ProfilePage() {
             id="phone"
             type="tel"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="input"
+            disabled
+            className="input opacity-60 cursor-not-allowed"
           />
+          <p className="text-xs text-gray-500 mt-1">
+            Your phone number is tied to the community allowlist. Contact an
+            admin to change it.
+          </p>
         </div>
 
         <div>

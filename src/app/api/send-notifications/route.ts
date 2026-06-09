@@ -40,11 +40,12 @@ export async function POST(request: Request) {
   const supabase = createAdminClient()
   const sent: string[] = []
 
-  // Get all matches for this week
+  // Get matches for this week that haven't been notified yet
   const { data: matches } = await supabase
     .from('matches')
     .select('id, host_id')
     .eq('week_of', weekOf)
+    .is('notified_at', null)
 
   if (matches) {
     for (const match of matches) {
@@ -114,21 +115,28 @@ export async function POST(request: Request) {
           }),
         })
         sent.push(`group:${hostEmail}+${guestEmails.join('+')}`)
+        await supabase
+          .from('matches')
+          .update({ notified_at: new Date().toISOString() })
+          .eq('id', match.id)
       } catch (e) {
         console.error('Failed to send group match email:', e)
       }
     }
   }
 
-  // Send unmatched emails
+  // Send unmatched emails (skip banned users and already-notified guests)
   const { data: unmatched } = await supabase
     .from('weekly_guests')
-    .select('*, users!inner(name, email)')
+    .select('*, users!inner(name, email, is_banned)')
     .eq('week_of', weekOf)
     .eq('status', 'unmatched')
+    .is('notified_at', null)
 
   if (unmatched) {
     for (const guest of unmatched) {
+      // @ts-expect-error - joined query types
+      if (guest.users.is_banned) continue
       // @ts-expect-error - joined query types
       const guestName = guest.users.name
       // @ts-expect-error - joined query types
@@ -141,6 +149,10 @@ export async function POST(request: Request) {
           react: UnmatchedEmail({ name: guestName, weekOf: formattedWeek }),
         })
         sent.push(`unmatched:${guestEmail}`)
+        await supabase
+          .from('weekly_guests')
+          .update({ notified_at: new Date().toISOString() })
+          .eq('id', guest.id)
       } catch (e) {
         console.error('Failed to send unmatched email:', e)
       }

@@ -7,7 +7,9 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type') as EmailOtpType | null
-  const next = searchParams.get('next') ?? '/dashboard'
+  const rawNext = searchParams.get('next') ?? '/dashboard'
+  // Only allow same-site paths as redirect targets
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/dashboard'
 
   if (token_hash && type) {
     const supabase = createClient()
@@ -54,12 +56,16 @@ export async function GET(request: Request) {
           return NextResponse.redirect(`${origin}/login?error=auth`)
         }
 
-        await supabase.from('users').insert({
+        const { error: insertError } = await supabase.from('users').insert({
           id: data.user.id,
           email: data.user.email!,
           name: metadata?.name || data.user.email!.split('@')[0],
           phone,
         })
+        if (insertError) {
+          console.error('Failed to create user profile:', insertError)
+          return NextResponse.redirect(`${origin}/login?error=auth`)
+        }
       }
 
       return NextResponse.redirect(`${origin}${next}`)
