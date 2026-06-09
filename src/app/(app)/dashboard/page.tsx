@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation'
 
 export default async function DashboardPage() {
   const supabase = createClient()
+  const adminClient = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -48,28 +49,31 @@ export default async function DashboardPage() {
   } | null = null
 
   if (hostEntry?.status === 'matched') {
-    const { data: match } = await supabase
+    // RLS blocks the host's session from reading other users' weekly_guests
+    // rows and names, so resolve guest details with the admin client after
+    // the session-scoped queries above established this is the host
+    const { data: match } = await adminClient
       .from('matches')
       .select('id')
       .eq('host_id', hostEntry.id)
       .single()
 
     if (match) {
-      const { data: matchGuests } = await supabase
+      const { data: matchGuests } = await adminClient
         .from('match_guests')
         .select('guest_id')
         .eq('match_id', match.id)
 
       if (matchGuests?.length) {
         const guestIds = matchGuests.map((mg) => mg.guest_id)
-        const { data: guestDetails } = await supabase
+        const { data: guestDetails } = await adminClient
           .from('weekly_guests')
           .select('user_id, party_size, dietary_restrictions')
           .in('id', guestIds)
 
         if (guestDetails) {
           const userIds = guestDetails.map((g) => g.user_id)
-          const { data: guestUsers } = await supabase
+          const { data: guestUsers } = await adminClient
             .from('users')
             .select('id, name')
             .in('id', userIds)
@@ -87,8 +91,6 @@ export default async function DashboardPage() {
   }
 
   if (guestEntry) {
-    const adminClient = createAdminClient()
-
     // Find the host ID — either from direct signup or via match chain
     let hostId: string | null = null
 

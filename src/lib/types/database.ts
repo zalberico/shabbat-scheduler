@@ -57,6 +57,7 @@ export interface Database {
           email: string
           name: string
           phone: string
+          phone_verified: boolean
           default_dietary_restrictions: string[]
           default_kashrut_preference: KashrutLevel
           default_shabbat_observance: ShabbatObservance
@@ -71,6 +72,7 @@ export interface Database {
           email: string
           name: string
           phone: string
+          phone_verified?: boolean
           default_dietary_restrictions?: string[]
           default_kashrut_preference?: KashrutLevel
           default_shabbat_observance?: ShabbatObservance
@@ -85,6 +87,7 @@ export interface Database {
           email?: string
           name?: string
           phone?: string
+          phone_verified?: boolean
           default_dietary_restrictions?: string[]
           default_kashrut_preference?: KashrutLevel
           default_shabbat_observance?: ShabbatObservance
@@ -107,6 +110,22 @@ export interface Database {
         }
         Update: {
           phone?: string
+        }
+      }
+      phone_verifications: {
+        Row: {
+          phone: string
+          email: string
+          verified_at: string
+        }
+        Insert: {
+          phone: string
+          email: string
+          verified_at?: string
+        }
+        Update: {
+          email?: string
+          verified_at?: string
         }
       }
       weekly_hosts: {

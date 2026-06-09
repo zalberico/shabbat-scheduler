@@ -48,12 +48,15 @@ export async function POST(request: Request) {
     .in('status', ['open', 'matched'])
     .order('kashrut_level', { ascending: false })
 
-  // Get all pending match_pool guests for this week
-  const { data: guests } = await supabase
+  // Get all pending/unmatched match_pool guests for this week. Including
+  // 'unmatched' lets re-runs re-consider guests a previous run couldn't
+  // place. Banned users must be excluded explicitly — the ban route parks
+  // their entries as 'unmatched', which would otherwise re-enter the pool.
+  const { data: guestRows } = await supabase
     .from('weekly_guests')
-    .select('*, users!inner(id, name, email)')
+    .select('*, users!inner(id, name, email, is_banned)')
     .eq('week_of', weekOf)
-    .eq('status', 'pending')
+    .in('status', ['pending', 'unmatched'])
     .eq('signup_type', 'match_pool')
 
   // Calculate used seats per host from existing placements: match_guests
@@ -99,11 +102,20 @@ export async function POST(request: Request) {
     }
   })
 
-  if (!hosts?.length || !guests?.length) {
+  // Build the candidate pool: skip banned users and guests already placed at
+  // a table (match_guests is authoritative — a guest whose status update
+  // failed on a previous run must not be placed twice)
+  const guests = (guestRows || []).filter((g) => {
+    if (countedGuestEntryIds.has(g.id)) return false
+    // @ts-expect-error - joined query types
+    return !g.users.is_banned
+  })
+
+  if (!hosts?.length || !guests.length) {
     return NextResponse.json({
       message: 'No hosts or guests to match',
       hosts: hosts?.length || 0,
-      guests: guests?.length || 0,
+      guests: guests.length,
     })
   }
 
@@ -228,6 +240,7 @@ export async function POST(request: Request) {
   }
 
   // Write matches to database
+  let failedTables = 0
   for (const result of matchResults) {
     // Check if a match row already exists (from direct signups)
     let matchId: string
@@ -247,42 +260,69 @@ export async function POST(request: Request) {
         .select('id')
         .single()
 
-      if (matchError || !newMatch) continue
+      if (matchError || !newMatch) {
+        console.error('Failed to create match for host', result.hostId, matchError)
+        // Return guests to the pool so they're marked unmatched below and
+        // re-considered on the next run
+        result.guestIds.forEach((id) => assignedGuests.delete(id))
+        failedTables++
+        continue
+      }
       matchId = newMatch.id
     }
 
-    // Insert match guests
-    await supabase.from('match_guests').insert(
+    // Insert match guests — statuses are only updated if this succeeds, so a
+    // failed insert can't leave guests marked matched with no match row
+    const { error: guestInsertError } = await supabase.from('match_guests').insert(
       result.guestIds.map((guestId) => ({
         match_id: matchId,
         guest_id: guestId,
       }))
     )
 
+    if (guestInsertError) {
+      console.error('Failed to insert match_guests for host', result.hostId, guestInsertError)
+      result.guestIds.forEach((id) => assignedGuests.delete(id))
+      failedTables++
+      continue
+    }
+
     // Update host status (if not already matched)
-    await supabase
+    const { error: hostStatusError } = await supabase
       .from('weekly_hosts')
       .update({ status: 'matched' })
       .eq('id', result.hostId)
+    if (hostStatusError) {
+      console.error('Failed to update host status', result.hostId, hostStatusError)
+    }
 
     // Update guest statuses
-    await supabase
+    const { error: guestStatusError } = await supabase
       .from('weekly_guests')
       .update({ status: 'matched' })
       .in('id', result.guestIds)
+    if (guestStatusError) {
+      console.error('Failed to update guest statuses', result.guestIds, guestStatusError)
+    }
   }
 
-  // Mark unmatched guests (only match_pool guests)
+  // Mark unmatched guests (only match_pool guests). Guests from failed
+  // writes were removed from assignedGuests above so they land here and get
+  // re-considered on the next run.
   const unmatchedGuests = guests.filter((g) => !assignedGuests.has(g.id))
   if (unmatchedGuests.length > 0) {
-    await supabase
+    const { error: unmatchedError } = await supabase
       .from('weekly_guests')
       .update({ status: 'unmatched' })
       .in('id', unmatchedGuests.map((g) => g.id))
+    if (unmatchedError) {
+      console.error('Failed to mark unmatched guests:', unmatchedError)
+    }
   }
 
   return NextResponse.json({
-    matched: matchResults.length,
+    matched: matchResults.length - failedTables,
+    failedTables,
     totalGuests: guests.length,
     matchedGuests: assignedGuests.size,
     unmatchedGuests: unmatchedGuests.length,

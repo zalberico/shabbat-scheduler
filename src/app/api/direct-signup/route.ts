@@ -40,6 +40,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'You already have a signup for this week' }, { status: 409 })
   }
 
+  // Check user isn't already hosting a dinner this week
+  const { data: existingHost } = await adminClient
+    .from('weekly_hosts')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('week_of', weekOf)
+    .neq('status', 'cancelled')
+    .single()
+
+  if (existingHost) {
+    return NextResponse.json({ error: 'You are already hosting a dinner this week' }, { status: 409 })
+  }
+
   // Verify host exists and is available
   const { data: host } = await adminClient
     .from('weekly_hosts')
@@ -59,8 +72,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'You cannot sign up for your own dinner' }, { status: 400 })
   }
 
-  // Calculate remaining seats via match_guests (covers direct, algorithm, and admin-placed)
+  // Calculate remaining seats via match_guests (covers direct, algorithm, and
+  // admin-placed), plus any direct signups for this host not yet linked to a
+  // match row (partial-failure leftovers) — same accounting as the matcher
   let usedSeats = 0
+  const linkedGuestIds = new Set<string>()
 
   const { data: hostMatch } = await adminClient
     .from('matches')
@@ -77,6 +93,7 @@ export async function POST(request: Request) {
 
     if (matchGuestRows?.length) {
       const mgIds = matchGuestRows.map((mg) => mg.guest_id)
+      mgIds.forEach((id) => linkedGuestIds.add(id))
       const { data: matchedGuests } = await adminClient
         .from('weekly_guests')
         .select('party_size')
@@ -85,6 +102,17 @@ export async function POST(request: Request) {
       usedSeats = matchedGuests?.reduce((sum, g) => sum + g.party_size, 0) || 0
     }
   }
+
+  const { data: unlinkedDirect } = await adminClient
+    .from('weekly_guests')
+    .select('id, party_size')
+    .eq('week_of', weekOf)
+    .eq('signup_type', 'direct')
+    .eq('selected_host_id', host.id)
+
+  unlinkedDirect?.forEach((g) => {
+    if (!linkedGuestIds.has(g.id)) usedSeats += g.party_size
+  })
 
   const remaining = host.seats_available - usedSeats
 
@@ -114,7 +142,40 @@ export async function POST(request: Request) {
     }
   }
 
-  // Insert guest entry
+  // Create or reuse the match row BEFORE the guest entry so a mid-flow
+  // failure can't strand a guest as matched-with-no-match. An empty match
+  // row left behind by a later failure is harmless: this route and the
+  // matcher both reuse it, and send-notifications skips empty matches.
+  let matchId: string
+  if (hostMatch) {
+    matchId = hostMatch.id
+  } else {
+    const { data: newMatch, error: matchError } = await adminClient
+      .from('matches')
+      .insert({ week_of: weekOf, host_id: host.id })
+      .select('id')
+      .single()
+
+    if (matchError || !newMatch) {
+      // Possible race: a concurrent signup created the row between our
+      // earlier select and this insert (matches is unique per host) — re-check
+      const { data: racedMatch } = await adminClient
+        .from('matches')
+        .select('id')
+        .eq('host_id', host.id)
+        .eq('week_of', weekOf)
+        .single()
+      if (!racedMatch) {
+        return NextResponse.json({ error: 'Failed to create match' }, { status: 500 })
+      }
+      matchId = racedMatch.id
+    } else {
+      matchId = newMatch.id
+    }
+  }
+
+  // Insert guest entry as 'pending' — only flipped to 'matched' once the
+  // match_guests link exists
   const { data: guestEntry, error: guestError } = await adminClient
     .from('weekly_guests')
     .insert({
@@ -133,7 +194,7 @@ export async function POST(request: Request) {
       notes: body.notes || null,
       signup_type: 'direct',
       selected_host_id: host.id,
-      status: 'matched',
+      status: 'pending',
     })
     .select('id')
     .single()
@@ -142,41 +203,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: guestError?.message || 'Failed to create signup' }, { status: 500 })
   }
 
-  // Upsert match row for this host
-  let matchId: string
-  const { data: existingMatch } = await adminClient
-    .from('matches')
-    .select('id')
-    .eq('host_id', host.id)
-    .eq('week_of', weekOf)
-    .single()
+  // Link guest to match — no transactions via PostgREST, so compensate on
+  // failure by removing the guest entry so the user can retry cleanly
+  const { error: linkError } = await adminClient.from('match_guests').insert({
+    match_id: matchId,
+    guest_id: guestEntry.id,
+  })
 
-  if (existingMatch) {
-    matchId = existingMatch.id
-  } else {
-    const { data: newMatch, error: matchError } = await adminClient
-      .from('matches')
-      .insert({ week_of: weekOf, host_id: host.id })
-      .select('id')
-      .single()
+  if (linkError) {
+    console.error('Failed to link direct signup to match:', linkError)
+    await adminClient.from('weekly_guests').delete().eq('id', guestEntry.id)
+    return NextResponse.json({ error: 'Failed to complete signup, please try again' }, { status: 500 })
+  }
 
-    if (matchError || !newMatch) {
-      return NextResponse.json({ error: 'Failed to create match' }, { status: 500 })
-    }
-    matchId = newMatch.id
+  // Placement is recorded — mark the guest matched. A failure here is benign
+  // (match_guests is authoritative); log and continue.
+  const { error: statusError } = await adminClient
+    .from('weekly_guests')
+    .update({ status: 'matched' })
+    .eq('id', guestEntry.id)
+  if (statusError) {
+    console.error('Failed to mark direct signup matched:', statusError)
+  }
 
-    // Update host status to matched
+  if (!hostMatch) {
+    // Update host status to matched (first guest at this table)
     await adminClient
       .from('weekly_hosts')
       .update({ status: 'matched' })
       .eq('id', host.id)
   }
-
-  // Link guest to match
-  await adminClient.from('match_guests').insert({
-    match_id: matchId,
-    guest_id: guestEntry.id,
-  })
 
   // Check if dinner is now full and send notification to host
   const newUsedSeats = usedSeats + body.party_size
