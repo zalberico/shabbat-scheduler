@@ -236,10 +236,11 @@ export function DinnerFullEmail({
 }
 
 export function ReminderEmail({
-  name, appUrl,
+  name, appUrl, unsubscribeUrl,
 }: {
   name: string
   appUrl: string
+  unsubscribeUrl?: string
 }) {
   return (
     <Html>
@@ -259,6 +260,14 @@ export function ReminderEmail({
           </Section>
           <Text style={styles.footer}>
             Noe Valley Chavurah Shabbat Dinner Program
+            {unsubscribeUrl && (
+              <>
+                {' · '}
+                <Link href={unsubscribeUrl} style={{ color: '#9ca3af', textDecoration: 'underline' }}>
+                  Unsubscribe from reminders
+                </Link>
+              </>
+            )}
           </Text>
         </Container>
       </Body>

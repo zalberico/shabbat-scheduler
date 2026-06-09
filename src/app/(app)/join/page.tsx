@@ -189,8 +189,14 @@ export default function JoinPage() {
 
   async function handleCancel() {
     if (!existing) return
-    const supabase = createClient()
-    await supabase.from('weekly_guests').delete().eq('id', existing)
+    // Cancel via API so placement rows are cleaned up and the host is
+    // notified if this guest was already seated
+    const res = await fetch(`/api/cancel-signup?week=${weekOf}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error || 'Failed to cancel signup')
+      return
+    }
     router.push('/dashboard')
   }
 

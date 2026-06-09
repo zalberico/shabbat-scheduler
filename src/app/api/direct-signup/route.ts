@@ -3,7 +3,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { getWeekOf, isBeforeDeadline, isValidFutureFriday, formatWeekOf } from '@/lib/utils'
 import { sendEmail } from '@/lib/email/send'
-import { GuestCancelledEmail, DinnerFullEmail } from '@/lib/email/templates'
+import { GuestCancelledEmail } from '@/lib/email/templates'
+import { notifyHostIfDinnerFull } from '@/lib/email/dinner-full'
+import { geocodeAddress } from '@/lib/geocode'
 
 export async function POST(request: Request) {
   const supabase = createClient()
@@ -122,20 +124,16 @@ export async function POST(request: Request) {
     }, { status: 409 })
   }
 
-  // Geocode address if provided
+  // Geocode address if provided (direct Mapbox call — a self-fetch to
+  // /api/geocode would have no session cookies and always 401)
   let lat: number | null = null
   let lng: number | null = null
   if (body.can_walk && body.address?.trim()) {
     try {
-      const geoRes = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/geocode`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: body.address.trim() }),
-      })
-      if (geoRes.ok) {
-        const geoData = await geoRes.json()
-        lat = geoData.lat
-        lng = geoData.lng
+      const geo = await geocodeAddress(body.address)
+      if (geo) {
+        lat = geo.lat
+        lng = geo.lng
       }
     } catch {
       // Continue without geocoding
@@ -236,57 +234,8 @@ export async function POST(request: Request) {
 
   // Check if dinner is now full and send notification to host
   const newUsedSeats = usedSeats + body.party_size
-  if (newUsedSeats >= host.seats_available && process.env.RESEND_API_KEY) {
-    try {
-      const formattedWeek = formatWeekOf(weekOf)
-
-      // Get host user info
-      const { data: hostUser } = await adminClient
-        .from('users')
-        .select('name, email')
-        .eq('id', host.user_id)
-        .single()
-
-      // Get all guests for this dinner
-      const { data: allMatchGuests } = await adminClient
-        .from('match_guests')
-        .select('guest_id')
-        .eq('match_id', matchId)
-
-      const allGuestIds = allMatchGuests?.map((mg) => mg.guest_id) || []
-      const { data: allGuestEntries } = allGuestIds.length
-        ? await adminClient
-            .from('weekly_guests')
-            .select('user_id, party_size, dietary_restrictions')
-            .in('id', allGuestIds)
-        : { data: [] }
-
-      const guestUserIds = allGuestEntries?.map((g) => g.user_id) || []
-      const { data: guestUsers } = guestUserIds.length
-        ? await adminClient.from('users').select('id, name').in('id', guestUserIds)
-        : { data: [] }
-
-      if (hostUser && allGuestEntries?.length) {
-        const guestList = allGuestEntries.map((g) => ({
-          name: guestUsers?.find((u) => u.id === g.user_id)?.name || 'Unknown',
-          partySize: g.party_size,
-          dietary: g.dietary_restrictions,
-        }))
-
-        await sendEmail({
-          from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
-          to: hostUser.email,
-          subject: `Your Shabbat dinner is full! (${formattedWeek})`,
-          react: DinnerFullEmail({
-            hostName: hostUser.name.split(' ')[0],
-            weekOf: formattedWeek,
-            guests: guestList,
-          }),
-        })
-      }
-    } catch (e) {
-      console.error('Failed to send dinner full email:', e)
-    }
+  if (newUsedSeats >= host.seats_available) {
+    await notifyHostIfDinnerFull(host.id, weekOf)
   }
 
   return NextResponse.json({ success: true })
