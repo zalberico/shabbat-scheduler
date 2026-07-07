@@ -267,17 +267,21 @@ export async function DELETE(request: Request) {
 
   // Get guest name and host info for notification BEFORE deleting
   let guestName = 'A guest'
+  let guestEmail: string | null = null
   let hostEmail: string | null = null
   let hostName = 'Host'
   let hostSeats = 0
 
   const { data: guestUser } = await adminClient
     .from('users')
-    .select('name')
+    .select('name, email')
     .eq('id', guestEntry.user_id)
     .single()
 
-  if (guestUser) guestName = guestUser.name
+  if (guestUser) {
+    guestName = guestUser.name
+    guestEmail = guestUser.email
+  }
 
   if (guestEntry.selected_host_id) {
     const { data: hostEntry } = await adminClient
@@ -354,6 +358,8 @@ export async function DELETE(request: Request) {
       await sendEmail({
         from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
         to: hostEmail,
+        // Send-only address bounces; replies go to the guest instead
+        replyTo: guestEmail || undefined,
         subject: `${guestName.split(' ')[0]} cancelled their signup for your dinner`,
         react: GuestCancelledEmail({
           hostName: hostName.split(' ')[0],

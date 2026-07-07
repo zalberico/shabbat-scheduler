@@ -77,7 +77,7 @@ export async function DELETE(request: Request) {
           .single()
         const { data: guestUser } = await adminClient
           .from('users')
-          .select('name')
+          .select('name, email')
           .eq('id', guestEntry.user_id)
           .single()
 
@@ -108,6 +108,8 @@ export async function DELETE(request: Request) {
           await sendEmail({
             from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
             to: hostUser.email,
+            // Send-only address bounces; replies go to the guest instead
+            replyTo: guestUser?.email || undefined,
             subject: `${guestName} cancelled their signup for your dinner`,
             react: GuestCancelledEmail({
               hostName: hostUser.name.split(' ')[0],
