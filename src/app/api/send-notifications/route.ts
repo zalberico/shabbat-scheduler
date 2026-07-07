@@ -103,6 +103,8 @@ export async function POST(request: Request) {
           from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
           to: hostEmail,
           cc: guestEmails,
+          // Send-only address bounces; replies (and reply-all) go to the group instead
+          replyTo: [hostEmail, ...guestEmails],
           subject: `Shabbat dinner this Friday at ${hostName}'s! (${formattedWeek})`,
           react: MatchGroupEmail({
             hostName,

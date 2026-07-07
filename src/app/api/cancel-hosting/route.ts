@@ -32,11 +32,12 @@ export async function POST(request: Request) {
   // Get host name for the email
   const { data: hostUser } = await adminClient
     .from('users')
-    .select('name')
+    .select('name, email')
     .eq('id', hostEntry.user_id)
     .single()
 
   const hostName = hostUser?.name || 'Your host'
+  const hostEmail = hostUser?.email
 
   // Cancel the host
   await adminClient
@@ -96,6 +97,8 @@ export async function POST(request: Request) {
             await sendEmail({
               from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
               to: guest.email,
+              // Send-only address bounces; replies go to the host instead
+              replyTo: hostEmail || undefined,
               subject: `${hostName}'s dinner on ${formattedWeek} has been cancelled`,
               react: HostCancelledEmail({
                 guestName: guest.name.split(' ')[0],

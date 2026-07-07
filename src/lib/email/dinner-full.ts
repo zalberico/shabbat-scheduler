@@ -50,12 +50,16 @@ export async function notifyHostIfDinnerFull(hostEntryId: string, weekOf: string
 
     const { data: guestUsers } = await adminClient
       .from('users')
-      .select('id, name')
+      .select('id, name, email')
       .in('id', guestEntries.map((g) => g.user_id))
+
+    const guestEmails = guestUsers?.map((u) => u.email) || []
 
     await sendEmail({
       from: 'Shabbat Scheduler <shabbat@shabbat.zalberico.com>',
       to: hostUser.email,
+      // Send-only address bounces; replies go to the guests instead
+      replyTo: guestEmails.length ? guestEmails : undefined,
       subject: `Your Shabbat dinner is full! (${formatWeekOf(weekOf)})`,
       react: DinnerFullEmail({
         hostName: hostUser.name.split(' ')[0],
