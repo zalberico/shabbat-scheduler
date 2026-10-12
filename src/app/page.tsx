@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
 
 const hostSteps = [
   'Pick a Friday (up to 6 weeks out) and set your seats, start time, kashrut, and observance level.',
@@ -39,13 +40,30 @@ const features = [
   { title: 'Plan Ahead', desc: 'Dinners can be listed up to 6 weeks in advance, so you can lock in a Friday early.' },
 ]
 
-export default function Home() {
+export default async function Home() {
+  // Signed-in members go straight into the app; everyone else is sent to sign up.
+  // If the session check fails for any reason, fall back to the signed-out view.
+  let signedIn = false
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    signedIn = !!user
+  } catch {
+    signedIn = false
+  }
+  const appLink = (path: string) => (signedIn ? path : '/signup')
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="bg-[var(--color-primary)] text-white py-4 px-6">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <h1 className="text-xl font-bold">Shabbat Scheduler</h1>
+          {signedIn ? (
+            <Link href="/dashboard" className="bg-[var(--color-accent)] text-[var(--color-primary)] px-4 py-2 rounded-lg font-medium text-sm hover:bg-[var(--color-accent-light)] transition-colors">
+              Go to dashboard
+            </Link>
+          ) : (
           <div className="flex gap-3">
             <Link href="/login" className="btn-secondary !border-white !text-white hover:!bg-white hover:!text-[var(--color-primary)] text-sm !px-4 !py-2">
               Log in
@@ -54,6 +72,7 @@ export default function Home() {
               Sign up
             </Link>
           </div>
+          )}
         </div>
       </header>
 
@@ -69,9 +88,15 @@ export default function Home() {
               Friday nights, and everyone else browses and picks the dinner they want.
             </p>
             <div className="flex justify-center">
-              <Link href="/signup" className="btn-primary text-lg px-8 py-3">
-                Join the Community
-              </Link>
+              {signedIn ? (
+                <Link href="/dashboard" className="btn-primary text-lg px-8 py-3">
+                  Go to your dashboard
+                </Link>
+              ) : (
+                <Link href="/signup" className="btn-primary text-lg px-8 py-3">
+                  Join the Community
+                </Link>
+              )}
             </div>
           </div>
         </section>
@@ -91,7 +116,7 @@ export default function Home() {
                 title="Host a dinner"
                 steps={hostSteps}
                 footnote="Seats still open after Wednesday's deadline may be filled with members who asked to be matched. You'll see them on your guest list and in Thursday's group email."
-                href="/host"
+                href={appLink('/host')}
                 cta="Host a dinner"
               />
               <PathCard
@@ -99,7 +124,7 @@ export default function Home() {
                 title="Pick a dinner to join"
                 steps={guestSteps}
                 footnote="You'll get a heads-up if a dinner doesn't meet your kashrut or observance needs, and you can still choose to join."
-                href="/browse"
+                href={appLink('/browse')}
                 cta="Browse dinners"
               />
             </div>
@@ -114,13 +139,16 @@ export default function Home() {
                   walking distance, and who you haven&apos;t met yet.
                 </p>
               </div>
-              <Link href="/join" className="btn-secondary text-sm whitespace-nowrap mt-4 md:mt-0 inline-block">
+              <Link href={appLink('/join')} className="btn-secondary text-sm whitespace-nowrap mt-4 md:mt-0 inline-block">
                 Match me
               </Link>
             </div>
-            <p className="text-xs text-gray-500 text-center mt-4">
-              Buttons above take members straight to the app. New here? <Link href="/signup" className="underline">Sign up first</Link>.
-            </p>
+            {!signedIn && (
+              <p className="text-sm text-gray-500 text-center mt-4">
+                New here? The buttons above start with a quick sign-up.{' '}
+                Already a member? <Link href="/login" className="underline">Log in</Link>.
+              </p>
+            )}
           </div>
         </section>
 
